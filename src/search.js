@@ -16,6 +16,7 @@ export function searchableFields(node) {
     { kind: 'label', value: node.label || '' },
     { kind: 'description', value: node.description || '' },
     ...(node.aliases || []).map((value) => ({ kind: 'alias', value })),
+    ...(node.observations || []).map((observation) => ({ kind: 'observation', value: observation.label || '', id: observation.id })),
     ...(node.facets || []).map((facet) => ({ kind: 'facet', value: facet.label || '' })),
   ]
 }
@@ -23,8 +24,10 @@ export function searchableFields(node) {
 function matchesFields(fields, query = '') {
   const tokens = searchTokens(query)
   if (!tokens.length) return true
-  const haystack = normalizeSearchText(fields.map(({ value }) => value).join(' '))
-  return tokens.every((token) => haystack.includes(token))
+  return fields.some(({ value }) => {
+    const haystack = normalizeSearchText(value)
+    return tokens.every((token) => haystack.includes(token))
+  })
 }
 
 export function matchesPrimarySearch(node, query = '') {
@@ -35,11 +38,15 @@ export function matchesSearch(node, query = '') {
   return matchesFields(searchableFields(node), query)
 }
 
+export function matchesObservationSearch(observation, query = '') {
+  return matchesFields([{ kind: 'observation', value: observation.label || '' }], query)
+}
+
 export function searchRelevance(node, query = '') {
   const normalizedQuery = normalizeSearchText(query)
   const tokens = searchTokens(query)
   if (!tokens.length) return 0
-  const weights = { label: 100, alias: 80, description: 50, facet: 20 }
+  const weights = { label: 100, alias: 80, observation: 70, description: 50, facet: 20 }
   return searchableFields(node).reduce((score, { kind, value }) => {
     const normalized = normalizeSearchText(value)
     const weight = weights[kind] || 0

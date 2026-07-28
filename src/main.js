@@ -1,7 +1,7 @@
 import './style.css'
 import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
-import { matchesPrimarySearch, matchesSearch, matchingSearchFields, searchRelevance } from './search.js'
+import { matchesObservationSearch, matchesPrimarySearch, matchesSearch, matchingSearchFields, searchRelevance } from './search.js'
 
 const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 const NETWORK_ALPHA_DECAY = 0.003 * 2
@@ -171,7 +171,7 @@ function controlsMarkup() {
     <section class="controls" aria-label="Explorer filters">
       <label class="search-wrap">
         <span>Search all motifs</span>
-        <input id="search" type="search" value="${escapeHtml(state.query)}" placeholder="Label, description, alias, or facet…" autocomplete="off" />
+        <input id="search" type="search" value="${escapeHtml(state.query)}" placeholder="Label, description, alias, reviewed observation, or facet…" autocomplete="off" />
       </label>
       <fieldset>
         <legend>Resolution</legend>
@@ -188,6 +188,7 @@ function controlsMarkup() {
 
 function headerMarkup() {
   const counts = state.data.counts.by_level
+  const observationCount = state.data.observations?.length || 0
   return `
     <header class="hero">
       <div>
@@ -197,6 +198,7 @@ function headerMarkup() {
       </div>
       <div class="summary" aria-label="Dataset summary">
         ${['L1', 'L2', 'L3'].map((level) => `<div><strong>${counts[level] || 0}</strong><span>${level} nodes</span></div>`).join('')}
+        <div><strong>${formatCount(observationCount)}</strong><span>reviewed observations</span></div>
       </div>
     </header>
     ${state.data.warning ? `<div class="data-warning" role="status"><strong>Seed preview.</strong> ${escapeHtml(state.data.warning)}</div>` : ''}
@@ -232,17 +234,62 @@ function detailMarkup() {
       ${node.aliases?.length ? `<p class="alias-list"><strong>Aliases:</strong> ${node.aliases.map(escapeHtml).join('; ')}</p>` : ''}
       <dl><div><dt>Papers</dt><dd>${formatCount(node.paper_count)}</dd></div><div><dt>Components</dt><dd>${formatCount(node.component_count)}</dd></div><div><dt>Years</dt><dd>${yearRange(node)}</dd></div><div><dt>Parents</dt><dd>${node.parent_ids?.map(familyLabel).map(escapeHtml).join(', ') || '—'}</dd></div></dl>
       ${node.facets?.length ? `<div class="facet-list">${node.facets.map((facet) => `<span title="${escapeHtml(facet.description)}">${escapeHtml(facet.label)}</span>`).join('')}</div>` : ''}
+      ${observationsMarkup(node)}
     </div>`
   }
-  return `<div class="empty-detail"><span aria-hidden="true">◎</span><p>Select a node to keep it and its neighbors highlighted. Select an edge for its weight and time span.</p></div>`
+  return `<div class="empty-detail"><span aria-hidden="true">◎</span><p>Select a motif to inspect its full record, including every reviewed implementation observation mapped to it.</p></div>`
+}
+
+function observationMarkup(observation, matched) {
+  const related = observation.related_node_id
+    ? state.data.nodes.find((node) => node.id === observation.related_node_id)
+    : null
+  return `<details class="observation-item ${matched ? 'query-match' : ''}" ${matched ? 'open' : ''}>
+    <summary>
+      <span class="observation-title">${escapeHtml(observation.label)}</span>
+      <span class="observation-meta">${escapeHtml(observation.level)} · ${escapeHtml(observation.year || 'year pending')} · ${escapeHtml(observation.confidence || 'confidence pending')} confidence</span>
+    </summary>
+    <div class="observation-body">
+      <p>${escapeHtml(observation.rationale || 'No review rationale available.')}</p>
+      <dl>
+        <div><dt>Status</dt><dd>Reviewed single-paper observation</dd></div>
+        <div><dt>Decision</dt><dd>${escapeHtml((observation.decision || 'pending').replaceAll('_', ' '))}</dd></div>
+        <div><dt>Canonical status</dt><dd>${escapeHtml(observation.exclusion_reason || 'Not promoted to the recurrent registry')}</dd></div>
+        ${related ? `<div><dt>Related motif</dt><dd>${escapeHtml(related.label)}</dd></div>` : ''}
+      </dl>
+    </div>
+  </details>`
+}
+
+function observationsMarkup(node) {
+  const observations = [...(node.observations || [])]
+  const matched = new Set(
+    state.query.trim()
+      ? observations.filter((observation) => matchesObservationSearch(observation, state.query)).map((observation) => observation.id)
+      : [],
+  )
+  observations.sort((a, b) => Number(matched.has(b.id)) - Number(matched.has(a.id)) || Number(b.year || 0) - Number(a.year || 0) || a.label.localeCompare(b.label))
+  return `<section class="observation-section" aria-labelledby="observation-title-${escapeHtml(node.id)}">
+    <div class="observation-heading">
+      <h4 id="observation-title-${escapeHtml(node.id)}">Reviewed implementation observations</h4>
+      <span>${formatCount(observations.length)}</span>
+    </div>
+    <p class="observation-intro">These records preserve specific implementations that were reviewed but occur in only one paper. They remain visible here without being presented as recurrent canonical motifs.</p>
+    ${matched.size ? `<p class="observation-match-note"><strong>${matched.size}</strong> observation${matched.size === 1 ? '' : 's'} match the current search and ${matched.size === 1 ? 'is' : 'are'} expanded below.</p>` : ''}
+    ${observations.length ? `<div class="observation-list">${observations.map((observation) => observationMarkup(observation, matched.has(observation.id))).join('')}</div>` : '<p class="observation-empty">No reviewed single-paper observations are currently mapped to this motif.</p>'}
+  </section>`
 }
 
 function searchMatchMarkup(node) {
   const matches = matchingSearchFields(node, state.query)
-    .filter(({ kind }) => kind === 'alias' || kind === 'facet')
-  if (!matches.length) return ''
-  const unique = [...new Map(matches.map((match) => [`${match.kind}:${match.value}`, match])).values()]
-  return `<p class="search-match">${unique.map(({ kind, value }) => `<span><strong>Matched ${kind}:</strong> ${escapeHtml(value)}</span>`).join('')}</p>`
+  const compactMatches = matches.filter(({ kind }) => kind === 'alias' || kind === 'facet')
+  const observationMatches = new Set(matches.filter(({ kind }) => kind === 'observation').map(({ id }) => id))
+  if (!compactMatches.length && !observationMatches.size) return ''
+  const unique = [...new Map(compactMatches.map((match) => [`${match.kind}:${match.value}`, match])).values()]
+  return `<p class="search-match">
+    ${unique.map(({ kind, value }) => `<span><strong>Matched ${kind}:</strong> ${escapeHtml(value)}</span>`).join('')}
+    ${observationMatches.size ? `<span><strong>${observationMatches.size} matching reviewed observation${observationMatches.size === 1 ? '' : 's'}.</strong> Open the full motif details to inspect ${observationMatches.size === 1 ? 'it' : 'them'}.</span>` : ''}
+  </p>`
 }
 
 function cardMarkup(node) {
@@ -697,6 +744,14 @@ async function load() {
     const response = await fetch('./data/hierarchical_motifs.json')
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
     state.data = await response.json()
+    const nodesById = new Map(state.data.nodes.map((node) => [node.id, node]))
+    state.data.nodes.forEach((node) => { node.observations = [] })
+    for (const observation of state.data.observations || []) {
+      for (const anchorId of observation.anchor_ids || []) {
+        const node = nodesById.get(anchorId)
+        if (node) node.observations.push(observation)
+      }
+    }
     renderShell()
   } catch (error) {
     app.innerHTML = `<div class="fatal"><h1>Could not load motif data</h1><p>${escapeHtml(error.message)}</p><p>Generate <code>public/data/hierarchical_motifs.json</code> before serving the app.</p></div>`
