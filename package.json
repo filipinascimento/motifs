@@ -1,0 +1,24 @@
+{
+  "name": "rogers-hierarchical-motif-explorer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "data:check": "node scripts/public_data.mjs check public/data/hierarchical_motifs.json",
+    "build": "npm run data:check && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "helios-network": "^0.10.4",
+    "helios-web": "^0.10.9"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  },
+  "overrides": {
+    "helios-web": {
+      "d3-force-3d": "3.0.2"
+    }
+  }
+}

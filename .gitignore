@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.*
+
+# The public explorer must never contain source papers or private text caches.
+*.pdf
+full_texts/
+private/
+extracted_text/
