@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "data:check": "node scripts/public_data.mjs check public/data/hierarchical_motifs.json",
-    "build": "npm run data:check && vite build",
+    "test:search": "node scripts/test_search.mjs",
+    "build": "npm run data:check && npm run test:search && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

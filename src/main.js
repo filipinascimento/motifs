@@ -1,6 +1,7 @@
 import './style.css'
 import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
+import { matchesPrimarySearch, matchesSearch, matchingSearchFields, searchRelevance } from './search.js'
 
 const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 const NETWORK_ALPHA_DECAY = 0.003 * 2
@@ -56,22 +57,16 @@ function yearRange(node) {
   return node.first_year === node.last_year ? String(node.first_year) : `${node.first_year}–${node.last_year}`
 }
 
-function searchable(node) {
-  return [
-    node.label,
-    node.description,
-    ...(node.aliases || []),
-    ...(node.facets || []).flatMap((facet) => [facet.label, facet.description, facet.category]),
-  ].join(' ').toLocaleLowerCase()
-}
-
 function filteredNodes() {
-  const query = state.query.trim().toLocaleLowerCase()
-  return state.data.nodes.filter((node) => {
+  const candidates = state.data.nodes.filter((node) => {
     if (!state.levels.has(node.level)) return false
     if (state.family !== 'all' && familyFor(node) !== state.family && node.id !== state.family) return false
-    return !query || searchable(node).includes(query)
+    return true
   })
+  if (!state.query.trim()) return candidates
+  const primary = candidates.filter((node) => matchesPrimarySearch(node, state.query))
+  const matches = primary.length ? primary : candidates.filter((node) => matchesSearch(node, state.query))
+  return matches.sort((a, b) => searchRelevance(b, state.query) - searchRelevance(a, state.query) || a.label.localeCompare(b.label))
 }
 
 function timelineGroups() {
@@ -198,7 +193,7 @@ function headerMarkup() {
       <div>
         <p class="eyebrow">General device building-block library</p>
         <h1>Device motif atlas</h1>
-        <p class="lede">Explore the hierarchy from functional families to recurrent motifs and implementation variants, with evidence-weighted relationships.</p>
+        <p class="lede">Explore the hierarchy from functional families to recurrent motifs and implementation variants, with usage-weighted relationships.</p>
       </div>
       <div class="summary" aria-label="Dataset summary">
         ${['L1', 'L2', 'L3'].map((level) => `<div><strong>${counts[level] || 0}</strong><span>${level} nodes</span></div>`).join('')}
@@ -234,12 +229,20 @@ function detailMarkup() {
       <h3>${escapeHtml(node.label)}</h3>
       ${node.pending ? '<span class="badge pending">Pending corpus confirmation</span>' : '<span class="badge recurrent">Recurrent / controlled</span>'}
       <p>${escapeHtml(node.description || 'No short description available.')}</p>
+      ${node.aliases?.length ? `<p class="alias-list"><strong>Aliases:</strong> ${node.aliases.map(escapeHtml).join('; ')}</p>` : ''}
       <dl><div><dt>Papers</dt><dd>${formatCount(node.paper_count)}</dd></div><div><dt>Components</dt><dd>${formatCount(node.component_count)}</dd></div><div><dt>Years</dt><dd>${yearRange(node)}</dd></div><div><dt>Parents</dt><dd>${node.parent_ids?.map(familyLabel).map(escapeHtml).join(', ') || '—'}</dd></div></dl>
       ${node.facets?.length ? `<div class="facet-list">${node.facets.map((facet) => `<span title="${escapeHtml(facet.description)}">${escapeHtml(facet.label)}</span>`).join('')}</div>` : ''}
-      ${node.evidence_samples?.length ? `<div class="evidence-samples"><h4>Evidence examples</h4>${node.evidence_samples.slice(0, 3).map((item) => `<blockquote><p>“${escapeHtml(item.quote)}”</p><footer>${escapeHtml(item.document_title || item.paper_id)} · ${item.year || 'year unknown'} · p. ${item.page || '?'}</footer></blockquote>`).join('')}</div>` : ''}
     </div>`
   }
   return `<div class="empty-detail"><span aria-hidden="true">◎</span><p>Select a node to keep it and its neighbors highlighted. Select an edge for its weight and time span.</p></div>`
+}
+
+function searchMatchMarkup(node) {
+  const matches = matchingSearchFields(node, state.query)
+    .filter(({ kind }) => kind === 'alias' || kind === 'facet')
+  if (!matches.length) return ''
+  const unique = [...new Map(matches.map((match) => [`${match.kind}:${match.value}`, match])).values()]
+  return `<p class="search-match">${unique.map(({ kind, value }) => `<span><strong>Matched ${kind}:</strong> ${escapeHtml(value)}</span>`).join('')}</p>`
 }
 
 function cardMarkup(node) {
@@ -254,6 +257,7 @@ function cardMarkup(node) {
     <h3>${escapeHtml(node.label)}</h3>
     <p class="parent-line">${escapeHtml(parents || familyLabel(familyFor(node)))}</p>
     <p class="card-description">${escapeHtml(node.description || 'No short description available.')}</p>
+    ${searchMatchMarkup(node)}
     <div class="card-metrics"><span><strong>${formatCount(node.paper_count)}</strong> papers</span><span><strong>${formatCount(node.component_count)}</strong> components</span><span><strong>${yearRange(node)}</strong> years</span></div>
     ${node.facets?.length ? `<div class="facet-list compact">${node.facets.slice(0, 4).map((facet) => `<span>${escapeHtml(facet.label)}</span>`).join('')}${node.facets.length > 4 ? `<span>+${node.facets.length - 4}</span>` : ''}</div>` : ''}
   </article>`
@@ -403,7 +407,7 @@ function networkStageMarkup() {
       </div>
     </div>
     <div class="network-key" aria-label="Node encoding">
-      <span><i class="key-size"></i> size = evidence + connectivity</span>
+      <span><i class="key-size"></i> size = usage + connectivity</span>
       <span><i class="key-color"></i> color = L1 family</span>
     </div>
     <div class="network-tooltip" role="status" aria-live="polite"></div>`
@@ -545,10 +549,10 @@ async function renderNetwork() {
   const familyIndexes = new Map(families.map((node, index) => [node.id, index]))
   const levelIndexes = new Map([['L1', 0], ['L2', 1], ['L3', 2]])
   const nodeScores = nodes.map((node) => {
-    const evidence = Math.log1p(Number(node.paper_count || 0))
+    const usage = Math.log1p(Number(node.paper_count || 0))
     const connectivity = Math.log1p(Number(degree.get(node.id) || 0))
     const levelBoost = node.level === 'L1' ? 2.6 : node.level === 'L2' ? 0.8 : 0
-    return evidence + 0.7 * connectivity + levelBoost
+    return usage + 0.7 * connectivity + levelBoost
   })
   const edgeScores = edges.map((edge) => Math.log1p(Number(edge.weight || 1)))
   const edgeGroupIndexes = new Map(EDGE_GROUPS.map(([id], index) => [id, index]))
