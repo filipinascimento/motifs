@@ -3,6 +3,7 @@ import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
 
 const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+const NETWORK_ALPHA_DECAY = 0.003 * 2
 const EDGE_GROUPS = [
   ['parent_of', 'Hierarchy'],
   ['used_with', 'Used with'],
@@ -19,7 +20,7 @@ const state = {
   selectedNode: null,
   selectedEdge: null,
   networkMode: '2d',
-  showNetworkLabels: true,
+  showNetworkLabels: false,
 }
 
 const app = document.querySelector('#app')
@@ -577,6 +578,13 @@ async function renderNetwork() {
   const helios = new Helios(network, {
     container: stage,
     mode: state.networkMode,
+    layout: {
+      type: 'gpu-force',
+      options: {
+        mode: state.networkMode,
+        alphaDecay: NETWORK_ALPHA_DECAY,
+      },
+    },
     storage: false,
     session: false,
     fileDrop: false,
