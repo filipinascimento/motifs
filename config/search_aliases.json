@@ -1,0 +1,11 @@
+{
+  "L2-defined-volume-sampling-chamber": [
+    "flux chamber",
+    "molecular flux chamber",
+    "sealed headspace / flux chamber"
+  ],
+  "L2-thermal-sensing": [
+    "heat flux sensing",
+    "heat-flux estimation"
+  ]
+}
