@@ -1,7 +1,7 @@
 # Motif explorer
 
-A static, browser-side explorer for the Rogers hierarchical device-motif
-atlas. The production site is published at
+A static, browser-side explorer for a hierarchical device-motif atlas. The
+production site is published at
 [filipinascimento.github.io/motifs](https://filipinascimento.github.io/motifs/).
 
 The application has no API, database, or application server. GitHub Pages
