@@ -3,13 +3,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const MAX_QUOTE_CHARS = 500
 const FORBIDDEN_KEYS = new Set([
+  'evidence_samples',
   'full_text',
   'raw_text',
   'paper_text',
   'pdf_path',
   'pdf_relative_path',
+  'paper_ids',
   'local_path',
   'source_path',
 ])
@@ -25,29 +26,6 @@ function readJson(filename) {
   return JSON.parse(fs.readFileSync(filename, 'utf8'))
 }
 
-function normalizeWhitespace(value) {
-  return value.replace(/\s+/gu, ' ').trim()
-}
-
-function boundedQuote(value) {
-  const quote = normalizeWhitespace(value)
-  if (quote.length <= MAX_QUOTE_CHARS) {
-    return { quote, truncated: false }
-  }
-
-  const candidate = quote.slice(0, MAX_QUOTE_CHARS - 1)
-  const lastSpace = candidate.lastIndexOf(' ')
-  const boundary = lastSpace >= Math.floor(MAX_QUOTE_CHARS * 0.75)
-    ? lastSpace
-    : candidate.length
-  return { quote: `${candidate.slice(0, boundary)}…`, truncated: true }
-}
-
-function publicDocumentTitle(value) {
-  const basename = value.replaceAll('\\', '/').split('/').at(-1)
-  return basename.replace(/\.pdf$/iu, '')
-}
-
 function sanitize(data) {
   const output = structuredClone(data)
 
@@ -57,24 +35,16 @@ function sanitize(data) {
   }
 
   for (const node of output.nodes ?? []) {
-    for (const sample of node.evidence_samples ?? []) {
-      if (typeof sample.document_title === 'string') {
-        sample.document_title = publicDocumentTitle(sample.document_title)
-      }
-      if (typeof sample.quote === 'string') {
-        const bounded = boundedQuote(sample.quote)
-        sample.quote = bounded.quote
-        if (bounded.truncated) sample.quote_truncated = true
-        else delete sample.quote_truncated
-      }
-    }
+    delete node.evidence_samples
+    delete node.paper_ids
   }
 
   output.public_release = {
-    schema_version: '1.0',
+    schema_version: '1.1',
     contains_article_pdfs: false,
+    contains_evidence_samples: false,
     contains_full_text: false,
-    evidence_quote_max_characters: MAX_QUOTE_CHARS,
+    contains_paper_ids: false,
   }
 
   return output
@@ -105,9 +75,6 @@ function audit(value, trail = []) {
   if (/\.pdf(?:$|[?#])/iu.test(value)) {
     throw new Error(`PDF filename or URL at ${location}`)
   }
-  if (trail.at(-1) === 'quote' && value.length > MAX_QUOTE_CHARS) {
-    throw new Error(`Evidence excerpt exceeds ${MAX_QUOTE_CHARS} characters at ${location}`)
-  }
 }
 
 function validatePublicData(data) {
@@ -115,6 +82,12 @@ function validatePublicData(data) {
   if (data.source?.path) throw new Error('The private source path is still present')
   if (data.public_release?.contains_full_text !== false) {
     throw new Error('Missing public_release full-text declaration')
+  }
+  if (data.public_release?.contains_evidence_samples !== false) {
+    throw new Error('Missing public_release evidence-sample declaration')
+  }
+  if (data.public_release?.contains_paper_ids !== false) {
+    throw new Error('Missing public_release paper-ID declaration')
   }
   if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
     throw new Error('Expected nodes and edges arrays')

@@ -11,15 +11,14 @@ browser.
 
 ## Public-data boundary
 
-This repository contains derived motif labels, relationships, counts,
-provenance identifiers, and bounded evidence excerpts. It intentionally does
-not contain article PDFs, full-text extraction caches, internal run folders,
-or local filesystem paths. Full papers remain in the private corpus and must
-never be copied into this repository.
+This repository contains derived motif labels, descriptions, relationships,
+aggregate counts, timelines, aliases, and facets. It intentionally does not
+contain article PDFs, evidence excerpts, per-paper identifiers, full-text
+extraction caches, internal run folders, or local filesystem paths. Full papers
+remain in the private corpus and must never be copied into this repository.
 
-The public-data tool removes the internal source path, strips `.pdf` suffixes
-from document labels, limits evidence excerpts to 500 characters, and rejects
-common full-text fields or local paths:
+The public-data tool removes the internal source path, evidence samples, and
+per-paper identifiers, and rejects common full-text fields or local paths:
 
 ```bash
 node scripts/public_data.mjs export \
@@ -29,6 +28,14 @@ node scripts/public_data.mjs export \
 
 Review the generated diff before committing it. The automated build runs the
 same public-data checks again.
+
+## Search behavior
+
+Search prioritizes motif labels, visible descriptions, and aliases. When any
+of those primary fields match, broader facet-only matches are left out. Facet
+labels are used as a fallback when no primary field matches. Hidden facet
+descriptions and internal curation metadata are never searched. Multiword
+queries require every term, and exact label matches rank first.
 
 ## Local development
 
@@ -64,6 +71,5 @@ runtime dependency, but Safari/macOS should still be included in release QA.
 
 ## Content notice
 
-Article titles, citations, and short evidence excerpts remain attributable to
-their original publishers and authors. This public repository does not grant a
-license to the source articles or distribute their full text.
+This public repository does not distribute source articles, article excerpts,
+or their full text.
