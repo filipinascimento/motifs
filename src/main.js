@@ -142,7 +142,7 @@ function timelinesMarkup() {
   return `<section class="timelines" aria-labelledby="timeline-title">
     <div class="section-heading"><div><p class="eyebrow">Usage through time</p><h2 id="timeline-title">Motif timelines</h2></div><p>Timelines follow the active level, family, and search filters. Emerging = outside the filtered top 10, &lt;1% of pre-${recentStart} papers, ranked over ${recentStart}–${years.at(-1)}.</p></div>
     <div class="timeline-measure"><h3>Absolute usage <span>papers per year</span></h3><div class="timeline-grid">${timelineChartMarkup('absolute-overall', 'Top 10 in current view', overall, years, false)}${timelineChartMarkup('absolute-emerging', 'Emerging in current view', emerging, years, false)}</div></div>
-    <div class="timeline-measure"><h3>Relative usage <span>share of Rogers papers that year</span></h3><div class="timeline-grid">${timelineChartMarkup('relative-overall', 'Top 10 in current view', overall, years, true)}${timelineChartMarkup('relative-emerging', 'Emerging in current view', emerging, years, true)}</div></div>
+    <div class="timeline-measure"><h3>Relative usage <span>share of corpus papers that year</span></h3><div class="timeline-grid">${timelineChartMarkup('relative-overall', 'Top 10 in current view', overall, years, true)}${timelineChartMarkup('relative-emerging', 'Emerging in current view', emerging, years, true)}</div></div>
   </section>`
 }
 
@@ -196,7 +196,7 @@ function headerMarkup() {
     <header class="hero">
       <div>
         <p class="eyebrow">General device building-block library</p>
-        <h1>Rogers motif atlas</h1>
+        <h1>Device motif atlas</h1>
         <p class="lede">Explore the hierarchy from functional families to recurrent motifs and implementation variants, with evidence-weighted relationships.</p>
       </div>
       <div class="summary" aria-label="Dataset summary">
