@@ -41,10 +41,12 @@ const state = {
   motifLevel: 'all',
   motifFamily: 'all',
   resultLimit: 40,
-  networkNodeLimit: 250,
   minShared: 2,
   networkMode: '3d',
   showLabels: false,
+  nodeSizeScale: 1,
+  edgeOpacity: .65,
+  appliedFilters: { motifs: null, devices: null, papers: null },
   edgeTypes: { motifs: null, devices: null, papers: null },
   selected: { motifs: null, devices: null, papers: null },
   selectedEdge: null,
@@ -135,9 +137,28 @@ function headerMarkup() {
   </header>`
 }
 
-function toolbarMarkup() {
+function filterSnapshot() {
+  const snapshot = { query: state.query.trim() }
+  if (state.view === 'motifs') {
+    snapshot.level = state.motifLevel
+    snapshot.family = state.motifFamily
+  }
+  return snapshot
+}
+
+function normalizedFilterSnapshot(snapshot = filterSnapshot()) {
+  const isDefault = !snapshot.query
+    && (state.view !== 'motifs' || ((snapshot.level || 'all') === 'all' && (snapshot.family || 'all') === 'all'))
+  return isDefault ? null : snapshot
+}
+
+function filterIsPending() {
+  return JSON.stringify(normalizedFilterSnapshot()) !== JSON.stringify(state.appliedFilters[state.view])
+}
+
+function toolbarMarkup(graph = baseGraph()) {
   const families = state.atlas.nodes.filter((node) => node.level === 'L1')
-  const edgeTypes = availableEdgeTypes()
+  const edgeTypes = availableEdgeTypes(graph)
   const selectedTypes = state.edgeTypes[state.view]
   const selectedCount = selectedTypes === null
     ? edgeTypes.length
@@ -146,7 +167,8 @@ function toolbarMarkup() {
     <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd>/</kbd></label>
     ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All levels</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
-      <label>Network size<select id="network-limit">${[100, 250, 500].map((value) => `<option value="${value}" ${state.networkNodeLimit === value ? 'selected' : ''}>${value} nodes</option>`).join('')}</select></label>`}
+      `}
+    <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
     <div class="network-toolbar">
       <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/><i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
       <div class="network-actions"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
@@ -183,6 +205,7 @@ function networkTitle() {
 function networkPanelMarkup() {
   return `<section class="network-panel" aria-label="${networkTitle()}">
     <div id="network" class="network-host"><div class="network-loading">Loading network…</div></div>
+    <div class="network-tuning"><label><span>Node size</span><input id="node-size-scale" type="range" min="0.5" max="2" step="0.1" value="${state.nodeSizeScale}"/><output>${state.nodeSizeScale.toFixed(1)}×</output></label><label><span>Edge opacity</span><input id="edge-opacity" type="range" min="0.05" max="1" step="0.05" value="${state.edgeOpacity}"/><output>${Math.round(state.edgeOpacity * 100)}%</output></label></div>
   </section>`
 }
 
@@ -266,14 +289,15 @@ function detailMarkup(graph = currentGraph()) {
   return paperDetailMarkup(item)
 }
 
-function detailPanelMarkup() {
-  return `<aside id="detail-panel" class="detail-panel" aria-live="polite">${detailMarkup()}</aside>`
+function detailPanelMarkup(graph) {
+  return `<aside id="detail-panel" class="detail-panel" aria-live="polite">${detailMarkup(graph)}</aside>`
 }
 
 function baseGraph() {
+  const applied = state.appliedFilters[state.view]
   if (state.view === 'motifs') {
-    let nodes = motifResults(state.atlas.nodes, { query: state.query, level: state.motifLevel, family: state.motifFamily })
-    if (!state.query && state.motifLevel === 'all' && state.motifFamily === 'all') nodes = state.atlas.nodes
+    let nodes = motifResults(state.atlas.nodes, { query: applied?.query || '', level: applied?.level || 'all', family: applied?.family || 'all' })
+    if (!applied) nodes = state.atlas.nodes
     const selected = state.selected.motifs
     const selectedNode = selected ? state.atlas.nodes.find((node) => node.id === selected) : null
     if (selectedNode && !nodes.some((node) => node.id === selected)) nodes = [selectedNode, ...nodes]
@@ -285,16 +309,16 @@ function baseGraph() {
   }
   return projectedEntityNetwork(state.engineering, state.atlas.nodes, {
     view: state.view === 'devices' ? 'device' : 'paper',
-    query: state.query,
-    maxNodes: state.networkNodeLimit,
+    query: applied?.query || '',
+    maxNodes: Number.POSITIVE_INFINITY,
     minShared: state.minShared,
     topK: 8,
     selectedId: state.selected[state.view],
   })
 }
 
-function availableEdgeTypes() {
-  return [...new Set(baseGraph().edges.map(edgeCategory))].sort()
+function availableEdgeTypes(graph = baseGraph()) {
+  return [...new Set(graph.edges.map(edgeCategory))].sort()
 }
 
 function currentGraph() {
@@ -306,9 +330,37 @@ function renderApp() {
   destroyNetwork()
   state.resultLimit = Math.max(40, state.resultLimit)
   const items = activeItems()
-  app.innerHTML = `${headerMarkup()}${toolbarMarkup()}<main class="workspace">${resultsMarkup(items)}${networkPanelMarkup()}${detailPanelMarkup()}</main>`
+  const base = baseGraph()
+  const graph = { ...base, edges: filterEdgesByCategory(base.edges, state.edgeTypes[state.view]) }
+  app.innerHTML = `${headerMarkup()}${toolbarMarkup(base)}<main class="workspace">${resultsMarkup(items)}${networkPanelMarkup()}${detailPanelMarkup(graph)}</main>`
   bindUiEvents()
-  renderNetwork()
+  const expectedVersion = renderVersion + 1
+  void renderNetwork(graph).catch((error) => {
+    if (renderVersion !== expectedVersion) return
+    const host = document.querySelector('#network')
+    if (host) host.innerHTML = `<div class="network-loading">Could not render network: ${escapeHtml(error.message)}</div>`
+  })
+  updateUrl()
+}
+
+function bindResultEvents() {
+  document.querySelectorAll('[data-result-id]').forEach((button) => button.addEventListener('click', () => selectItem(button.dataset.resultId, true)))
+  document.querySelector('#load-more')?.addEventListener('click', () => { state.resultLimit += 40; updateLiveFiltering() })
+}
+
+function updateFilterActions() {
+  const apply = document.querySelector('#apply-network-filter')
+  if (!apply) return
+  apply.disabled = !filterIsPending()
+  apply.textContent = `Apply to network (${formatCount(activeItems().length)})`
+}
+
+function updateLiveFiltering() {
+  const panel = document.querySelector('.results-panel')
+  if (panel) panel.outerHTML = resultsMarkup(activeItems())
+  bindResultEvents()
+  updateFilterActions()
+  applyLiveHighlights()
   updateUrl()
 }
 
@@ -326,18 +378,24 @@ function bindUiEvents() {
     state.resultLimit = 40
     clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
-      renderApp()
-      const next = document.querySelector('#entity-search')
-      next?.focus()
-      next?.setSelectionRange(state.query.length, state.query.length)
-    }, 180)
+      updateLiveFiltering()
+    }, 120)
   })
-  document.querySelector('#motif-level')?.addEventListener('change', (event) => { state.motifLevel = event.target.value; state.resultLimit = 40; renderApp() })
-  document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; renderApp() })
+  document.querySelector('#motif-level')?.addEventListener('change', (event) => { state.motifLevel = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
+  document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#minimum-shared')?.addEventListener('change', (event) => { state.minShared = Number(event.target.value); renderApp() })
-  document.querySelector('#network-limit')?.addEventListener('change', (event) => { state.networkNodeLimit = Number(event.target.value); renderApp() })
+  document.querySelector('#apply-network-filter')?.addEventListener('click', () => {
+    state.appliedFilters[state.view] = normalizedFilterSnapshot()
+    state.selectedEdge = null
+    renderApp()
+  })
+  document.querySelector('#clear-network-filter')?.addEventListener('click', () => {
+    state.appliedFilters[state.view] = null
+    state.selectedEdge = null
+    renderApp()
+  })
   document.querySelectorAll('[data-edge-type]').forEach((input) => input.addEventListener('change', () => {
-    const available = availableEdgeTypes()
+    const available = [...document.querySelectorAll('[data-edge-type]')].map((item) => item.dataset.edgeType)
     const selected = new Set(state.edgeTypes[state.view] === null ? available : state.edgeTypes[state.view])
     if (input.checked) selected.add(input.dataset.edgeType)
     else selected.delete(input.dataset.edgeType)
@@ -350,8 +408,17 @@ function bindUiEvents() {
     state.selectedEdge = null
     renderApp()
   }))
-  document.querySelectorAll('[data-result-id]').forEach((button) => button.addEventListener('click', () => selectItem(button.dataset.resultId, true)))
-  document.querySelector('#load-more')?.addEventListener('click', () => { state.resultLimit += 40; renderApp() })
+  document.querySelector('#node-size-scale')?.addEventListener('input', (event) => {
+    state.nodeSizeScale = Number(event.target.value)
+    if (networkRuntime?.ready) networkRuntime.helios.nodeSizeScale(state.nodeSizeScale)
+    event.currentTarget.nextElementSibling.textContent = `${state.nodeSizeScale.toFixed(1)}×`
+  })
+  document.querySelector('#edge-opacity')?.addEventListener('input', (event) => {
+    state.edgeOpacity = Number(event.target.value)
+    if (networkRuntime?.ready) networkRuntime.helios.edgeOpacityScale(state.edgeOpacity)
+    event.currentTarget.nextElementSibling.textContent = `${Math.round(state.edgeOpacity * 100)}%`
+  })
+  bindResultEvents()
   bindDetailLinks()
 }
 
@@ -394,7 +461,7 @@ function destroyNetwork() {
 
 function syncNetworkSelection(kind, id) {
   const runtime = networkRuntime
-  if (!runtime?.helios) return
+  if (!runtime?.helios || !runtime.ready) return
   const selection = runtime.helios.behavior?.selection
   if (!selection) return
   const index = kind === 'node' ? runtime.nodeIndex.get(id) : runtime.edgeIndex.get(id)
@@ -408,6 +475,19 @@ function syncNetworkSelection(kind, id) {
   }
 }
 
+function applyLiveHighlights() {
+  const runtime = networkRuntime
+  if (!runtime?.helios || !runtime.ready) return
+  const matchingIds = filterIsPending() ? new Set(activeItems().map((item) => item.id)) : new Set()
+  const next = new Set([...matchingIds].map((id) => runtime.nodeIndex.get(id)).filter((id) => id !== undefined))
+  const previous = runtime.highlightedNodes || new Set()
+  const remove = [...previous].filter((id) => !next.has(id))
+  const add = [...next].filter((id) => !previous.has(id))
+  if (remove.length) runtime.helios.nodeState(remove, 'HIGHLIGHTED', { mode: 'remove' })
+  if (add.length) runtime.helios.nodeState(add, 'HIGHLIGHTED', { mode: 'add' })
+  runtime.highlightedNodes = next
+}
+
 function categoryForNode(node) {
   if (state.view === 'motifs') return familyForMotif(node)
   if (state.view === 'devices') return node.category || 'unknown'
@@ -415,11 +495,10 @@ function categoryForNode(node) {
   return year ? `${Math.floor(year / 5) * 5}–${Math.floor(year / 5) * 5 + 4}` : 'unknown'
 }
 
-async function renderNetwork() {
+async function renderNetwork(graph = currentGraph()) {
   const host = document.querySelector('#network')
   if (!host) return
   const version = ++renderVersion
-  const graph = currentGraph()
   const { nodes, edges } = graph
   if (!nodes.length) { host.innerHTML = '<div class="network-loading">No matching network nodes.</div>'; return }
   let network
@@ -432,7 +511,7 @@ async function renderNetwork() {
   const nodeIndex = new Map(nodes.map((node, index) => [node.id, Number(nodeHandles[index])]))
   const nodeId = new Map(nodes.map((node, index) => [Number(nodeHandles[index]), node.id]))
   const validEdges = edges.filter((edge) => nodeIndex.has(edge.source) && nodeIndex.has(edge.target))
-  const edgeHandles = network.addEdges(validEdges.map((edge) => [nodeIndex.get(edge.source), nodeIndex.get(edge.target)]))
+  const edgeHandles = validEdges.length ? network.addEdges(validEdges.map((edge) => [nodeIndex.get(edge.source), nodeIndex.get(edge.target)])) : []
   const edgeIndex = new Map(validEdges.map((edge, index) => [edge.id, Number(edgeHandles[index])]))
   const edgeId = new Map(validEdges.map((edge, index) => [Number(edgeHandles[index]), edge.id]))
   const degree = new Map(nodes.map((node) => [node.id, 0]))
@@ -446,9 +525,9 @@ async function renderNetwork() {
     .nodeAttribute('label', (_current, _id, ordinal) => nodes[ordinal].label)
     .nodeAttribute('category', (_current, _id, ordinal) => categoryIndex.get(categoryForNode(nodes[ordinal])) || 0, { type: AttributeType.Category })
     .nodeAttribute('score', (_current, _id, ordinal) => scores[ordinal], { type: AttributeType.Float })
-    .edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(edgeCategory(validEdges[ordinal])) || 0, { type: AttributeType.Category })
+  if (validEdges.length) network.edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(edgeCategory(validEdges[ordinal])) || 0, { type: AttributeType.Category })
   network.setNodeAttributeCategoryDictionary('category', categories.map((category, id) => ({ id, label: displayLabel(category) })), { remapExisting: false })
-  network.setEdgeAttributeCategoryDictionary('category', edgeTypes.map((type, id) => ({ id, label: displayLabel(type) })), { remapExisting: false })
+  if (validEdges.length) network.setEdgeAttributeCategoryDictionary('category', edgeTypes.map((type, id) => ({ id, label: displayLabel(type) })), { remapExisting: false })
   host.innerHTML = '<div id="network-stage" class="network-stage"></div>'
   const helios = new Helios(network, {
     container: host.querySelector('#network-stage'),
@@ -461,12 +540,13 @@ async function renderNetwork() {
     autoCleanup: false,
     disposeNetworkOnDestroy: true,
   })
-  networkRuntime = { helios, network, graph: { ...graph, edges: validEdges }, nodeIndex, edgeIndex }
+  networkRuntime = { helios, network, graph: { ...graph, edges: validEdges }, nodeIndex, edgeIndex, highlightedNodes: new Set(), ready: false }
   try { await helios.ready } catch (error) {
     if (version === renderVersion) host.innerHTML = `<div class="network-loading">Could not render network: ${escapeHtml(error.message)}</div>`
     return
   }
   if (version !== renderVersion) { helios.destroy(); return }
+  networkRuntime.ready = true
   const mapper = helios.behavior.mappers
   mapper.setChannelConfig('node', 'color', { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
   mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [5, 14] })
@@ -475,6 +555,9 @@ async function renderNetwork() {
   helios.nodeOutlineWidthScale(5)
   helios.nodeOutlineWidthBase(.15)
   helios.nodeOutlineColor('#ffffff80')
+  helios.nodeSizeScale(state.nodeSizeScale)
+  helios.edgeOpacityScale(state.edgeOpacity)
+  helios.nodeStateStyle('HIGHLIGHTED', { sizeMul: 1.35, outlineMul: 2.2, forceMaxAlpha: true })
   helios.behavior.labels.enabled(state.showLabels)
   helios.on(EVENTS.NODE_CLICK, (event) => {
     const id = nodeId.get(Number(event.detail?.index))
@@ -487,6 +570,7 @@ async function renderNetwork() {
   bindNetworkActions(helios)
   const selected = state.selected[state.view]
   if (selected) syncNetworkSelection('node', selected)
+  applyLiveHighlights()
   await new Promise((resolve) => setTimeout(resolve, 500))
   if (version === renderVersion) helios.frameNetwork({ animate: false, paddingRatio: .05 })
 }
