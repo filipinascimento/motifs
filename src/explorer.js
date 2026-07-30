@@ -46,7 +46,7 @@ const state = {
   minShared: 2,
   networkMode: '3d',
   showLabels: false,
-  nodeSizeScale: 1,
+  nodeSizeScale: .7,
   edgeOpacity: .65,
   motifCenterView: 'network',
   adoptionMeasure: 'papers',
@@ -630,7 +630,7 @@ async function renderNetwork(graph = currentGraph()) {
   networkRuntime.ready = true
   const mapper = helios.behavior.mappers
   mapper.setChannelConfig('node', 'color', { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
-  mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [5, 14] })
+  mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [4, 12] })
   mapper.setChannelConfig('node', 'outline', { type: 'constant', value: .15 })
   if (edgeTypes.length) mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map((type, index) => `${EDGE_COLORS[type] || CATEGORY10[index % CATEGORY10.length]}c8`) })
   helios.nodeOutlineWidthScale(5)
