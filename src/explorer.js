@@ -32,6 +32,20 @@ const VIEWS = {
   devices: { label: 'Devices', singular: 'device', placeholder: 'Search device, application, material, or motif…' },
   papers: { label: 'Papers', singular: 'paper', placeholder: 'Search title, DOI, device, or motif…' },
 }
+const SEARCH_FIELDS = {
+  motifs: [
+    ['all', 'All fields'], ['name', 'Name'], ['description', 'Description'],
+    ['aliases', 'Aliases / IDs'], ['facets', 'Components / facets'],
+  ],
+  devices: [
+    ['all', 'All fields'], ['name', 'Name'], ['title', 'Paper title'],
+    ['description', 'Description / function'], ['motifs', 'Motifs'], ['identifiers', 'Identifiers'],
+  ],
+  papers: [
+    ['all', 'All fields'], ['title', 'Title'], ['devices', 'Devices'],
+    ['motifs', 'Motifs'], ['identifiers', 'DOI / identifiers'],
+  ],
+}
 
 const state = {
   atlas: null,
@@ -40,6 +54,7 @@ const state = {
   papers: [],
   view: 'motifs',
   query: '',
+  searchFields: { motifs: 'all', devices: 'all', papers: 'all' },
   motifLevel: 'all',
   motifFamily: 'all',
   resultLimit: 40,
@@ -104,12 +119,13 @@ function activeItems() {
   if (state.view === 'motifs') {
     return motifResults(state.atlas.nodes, {
       query: state.query,
+      searchField: state.searchFields.motifs,
       level: state.motifLevel,
       family: state.motifFamily,
     })
   }
-  if (state.view === 'devices') return deviceResults(state.devices, state.query)
-  return paperResults(state.papers, state.query)
+  if (state.view === 'devices') return deviceResults(state.devices, state.query, state.searchFields.devices)
+  return paperResults(state.papers, state.query, state.searchFields.papers)
 }
 
 function activeItem(id = state.selected[state.view]) {
@@ -124,6 +140,8 @@ function updateUrl() {
   url.searchParams.set('view', state.view)
   if (state.query) url.searchParams.set('q', state.query)
   else url.searchParams.delete('q')
+  if (state.searchFields[state.view] !== 'all') url.searchParams.set('search', state.searchFields[state.view])
+  else url.searchParams.delete('search')
   const selected = state.selected[state.view]
   if (selected) url.searchParams.set('id', selected)
   else url.searchParams.delete('id')
@@ -135,6 +153,8 @@ function initialStateFromUrl() {
   const view = url.searchParams.get('view')
   if (VIEWS[view]) state.view = view
   state.query = url.searchParams.get('q') || ''
+  const searchField = url.searchParams.get('search')
+  if (SEARCH_FIELDS[state.view].some(([id]) => id === searchField)) state.searchFields[state.view] = searchField
   const selected = url.searchParams.get('id')
   if (selected) state.selected[state.view] = selected
 }
@@ -151,6 +171,7 @@ function headerMarkup() {
 
 function filterSnapshot() {
   const snapshot = { query: state.query.trim() }
+  if (snapshot.query) snapshot.searchField = state.searchFields[state.view]
   if (state.view === 'motifs') {
     snapshot.level = state.motifLevel
     snapshot.family = state.motifFamily
@@ -176,7 +197,8 @@ function toolbarMarkup(graph = baseGraph()) {
     ? edgeTypes.length
     : edgeTypes.filter((type) => selectedTypes.includes(type)).length
   return `<section class="toolbar">
-    <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd>/</kbd></label>
+    <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd aria-hidden="true">/</kbd></label>
+    <label>Search in<select id="search-field">${SEARCH_FIELDS[state.view].map(([id, label]) => `<option value="${id}" ${state.searchFields[state.view] === id ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
     ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All levels</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       `}
@@ -370,7 +392,12 @@ function detailPanelMarkup(graph) {
 function baseGraph() {
   const applied = state.appliedFilters[state.view]
   if (state.view === 'motifs') {
-    let nodes = motifResults(state.atlas.nodes, { query: applied?.query || '', level: applied?.level || 'all', family: applied?.family || 'all' })
+    let nodes = motifResults(state.atlas.nodes, {
+      query: applied?.query || '',
+      searchField: applied?.searchField || 'all',
+      level: applied?.level || 'all',
+      family: applied?.family || 'all',
+    })
     if (!applied) nodes = state.atlas.nodes
     const selected = state.selected.motifs
     const selectedNode = selected ? state.atlas.nodes.find((node) => node.id === selected) : null
@@ -381,9 +408,15 @@ function baseGraph() {
       edges: state.atlas.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
     }
   }
+  const matchingNodeIds = !applied
+    ? null
+    : (state.view === 'devices'
+        ? deviceResults(state.devices, applied.query || '', applied.searchField || 'all')
+        : paperResults(state.papers, applied.query || '', applied.searchField || 'all'))
+      .map((item) => item.id)
   return projectedEntityNetwork(state.engineering, state.atlas.nodes, {
     view: state.view === 'devices' ? 'device' : 'paper',
-    query: applied?.query || '',
+    nodeIds: matchingNodeIds,
     maxNodes: Number.POSITIVE_INFINITY,
     minShared: state.minShared,
     topK: 8,
@@ -489,6 +522,11 @@ function bindUiEvents() {
     searchTimer = setTimeout(() => {
       updateLiveFiltering()
     }, 120)
+  })
+  document.querySelector('#search-field')?.addEventListener('change', (event) => {
+    state.searchFields[state.view] = event.target.value
+    state.resultLimit = 40
+    updateLiveFiltering()
   })
   document.querySelector('#motif-level')?.addEventListener('change', (event) => { state.motifLevel = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; updateLiveFiltering() })

@@ -129,6 +129,9 @@ export function similarityEdges(nodes, { minShared = 2, topK = 8 } = {}) {
 function deviceNodes(characteristics, atlasNodes, options) {
   const motifById = new Map(asArray(atlasNodes).map((node) => [node.id, node]))
   const query = String(options.query || '').trim().toLocaleLowerCase()
+  const allowedNodeIds = options.nodeIds === undefined || options.nodeIds === null
+    ? null
+    : new Set(options.nodeIds)
   return Object.values(characteristics?.indexes?.devices || {}).map((device) => {
     const directMotifs = asArray(device.direct_motif_ids).filter((id) => motifById.get(id)?.level !== 'L1')
     const scopeMotifs = asArray(device.motif_ids).length ? asArray(device.motif_ids) : directMotifs
@@ -147,13 +150,18 @@ function deviceNodes(characteristics, atlasNodes, options) {
       metadata: device,
       search: searchableText(device.name, device.device_id, device.prototype_maturity, device.contribution_role, motifLabels),
     }
-  }).filter((node) => (!options.motifId || node.scope_motif_ids.includes(options.motifId)) && (!query || node.search.includes(query)))
+  }).filter((node) => (!allowedNodeIds || allowedNodeIds.has(node.id))
+    && (!options.motifId || node.scope_motif_ids.includes(options.motifId))
+    && (!query || node.search.includes(query)))
 }
 
 function paperNodes(characteristics, atlasNodes, options) {
   const motifById = new Map(asArray(atlasNodes).map((node) => [node.id, node]))
   const devices = characteristics?.indexes?.devices || {}
   const query = String(options.query || '').trim().toLocaleLowerCase()
+  const allowedNodeIds = options.nodeIds === undefined || options.nodeIds === null
+    ? null
+    : new Set(options.nodeIds)
   return Object.values(characteristics?.indexes?.papers || {}).map((paper) => {
     const directMotifs = unique(asArray(paper.device_ids).flatMap((id) => asArray(devices[id]?.direct_motif_ids)))
       .filter((id) => motifById.get(id)?.level !== 'L1')
@@ -173,7 +181,9 @@ function paperNodes(characteristics, atlasNodes, options) {
       metadata: paper,
       search: searchableText(paper.title, paper.paper_id, paper.year, motifLabels),
     }
-  }).filter((node) => (!options.motifId || node.scope_motif_ids.includes(options.motifId)) && (!query || node.search.includes(query)))
+  }).filter((node) => (!allowedNodeIds || allowedNodeIds.has(node.id))
+    && (!options.motifId || node.scope_motif_ids.includes(options.motifId))
+    && (!query || node.search.includes(query)))
 }
 
 export function projectedEntityNetwork(characteristics, atlasNodes = [], options = {}) {

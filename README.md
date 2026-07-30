@@ -48,6 +48,21 @@ plot points, and four chronological measurement groups. Review generated
 changes before committing them. The automated build validates both public
 datasets and reruns the frontend tests.
 
+After a taxonomy migration, verify that both public bundles expose the exact
+same motif IDs, labels, levels, and parents. Pass every retired motif ID so the
+check also scans all compressed engineering shards for stale references:
+
+```bash
+node scripts/check_bundle_parity.mjs \
+  public/data/hierarchical_motifs.json \
+  public/data/engineering/manifest.json \
+  --forbid-id L1-power-electronics-communication-computation \
+  --forbid-id L2-radio-frequency-or-nfc-telemetry
+
+# Equivalent repository command (expected to fail until migration is complete)
+npm run data:parity
+```
+
 ## Search behavior
 
 Search prioritizes motif labels, visible descriptions, aliases, and the labels

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "data:check": "node scripts/public_data.mjs check public/data/hierarchical_motifs.json && node scripts/public_engineering_data.mjs check public/data/engineering/manifest.json",
+    "data:parity": "node scripts/check_bundle_parity.mjs public/data/hierarchical_motifs.json public/data/engineering/manifest.json --forbid-id L1-power-electronics-communication-computation --forbid-id L2-radio-frequency-or-nfc-telemetry",
     "test": "node --test tests/*.test.js",
     "test:search": "node scripts/test_search.mjs",
     "build": "npm run data:check && npm test && npm run test:search && vite build",

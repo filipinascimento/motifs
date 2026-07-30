@@ -56,7 +56,11 @@ assert(
   !data.nodes.filter((node) => matchesSearch(node, 'heat flux')).some((node) => node.id === 'L2-replica-molding-and-soft-lithography'),
   'Multiword terms must not be assembled from unrelated observation labels on one parent',
 )
-assert(data.observations.length === 1973, `Expected all 1973 reviewed observations, found ${data.observations.length}`)
+assert(data.observations.length > 0, 'Expected reviewed observations in the public atlas')
+assert(
+  data.observations.length === data.public_release?.reviewed_observation_count,
+  'Reviewed observation count must agree with the public-release manifest',
+)
 assert(data.observations.every((observation) => observation.anchor_ids.length), 'Every reviewed observation must have a visible motif anchor')
 
 const wirelessMatches = data.nodes.filter((node) => matchesSearch(node, 'wireless power'))
