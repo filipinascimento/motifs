@@ -51,6 +51,7 @@ const state = {
   motifCenterView: 'network',
   adoptionMeasure: 'share',
   characteristicSelections: {},
+  characteristicScopeSelections: {},
   appliedFilters: { motifs: null, devices: null, papers: null },
   edgeTypes: { motifs: null, devices: null, papers: null },
   selected: { motifs: null, devices: null, papers: null },
@@ -258,10 +259,27 @@ function motifCharacteristicDetailMarkup(node) {
   const requested = state.characteristicSelections[node.id]
   const selected = trends.series.find((series) => series.key === requested) || trends.series[0]
   state.characteristicSelections[node.id] = selected.key
-  return `<section class="detail-section characteristic-trends"><div class="detail-section-heading"><h3>Characteristic trends</h3><span>${formatCount(trends.deviceCount)} devices</span></div>
-    <label class="characteristic-picker"><span>Characteristic</span><select id="motif-characteristic">${trends.series.map((series) => `<option value="${escapeHtml(series.key)}" ${series.key === selected.key ? 'selected' : ''}>${escapeHtml(displayLabel(series.displayMetric))} (${escapeHtml(series.unit)}) · ${formatCount(series.observationCount)}</option>`).join('')}</select></label>
-    <div class="characteristic-chart-heading"><strong>${escapeHtml(displayLabel(selected.displayMetric))}</strong><span>${formatCount(selected.observationCount)} observations · ${formatCount(selected.deviceCount)} devices · ${escapeHtml(selected.unit)}</span></div>
-    ${characteristicScatterMarkup(selected, adoptionYears(state.atlas.corpus_papers_by_year))}
+  const eligibleScopes = selected.scopes.filter((scope) => scope.observationCount > 10)
+  const scopeKey = `${node.id}|${selected.key}`
+  const requestedScope = state.characteristicScopeSelections[scopeKey]
+  const scopePriority = ['whole_device', 'component', 'fabrication_process', 'simulation', 'experimental_setup', 'unspecified']
+  const defaultScope = scopePriority.map((scope) => eligibleScopes.find((item) => item.scope === scope)).find(Boolean) || eligibleScopes[0]
+  const selectedScope = requestedScope === 'all'
+    ? null
+    : eligibleScopes.find((scope) => scope.scope === requestedScope) || defaultScope
+  const plotted = selectedScope ? {
+    ...selected,
+    observations: selectedScope.observations,
+    observationCount: selectedScope.observationCount,
+    deviceCount: selectedScope.deviceCount,
+  } : selected
+  if (requestedScope === undefined && selectedScope) state.characteristicScopeSelections[scopeKey] = selectedScope.scope
+  return `<section class="detail-section characteristic-trends"><div class="detail-section-heading"><h3>Reported values over time</h3><span>${formatCount(trends.deviceCount)} motif devices</span></div>
+    <div class="characteristic-controls"><label class="characteristic-picker"><span>Characteristic</span><select id="motif-characteristic">${trends.series.map((series) => `<option value="${escapeHtml(series.key)}" ${series.key === selected.key ? 'selected' : ''}>${escapeHtml(displayLabel(series.displayMetric))} (${escapeHtml(series.unit)}) · ${formatCount(series.observationCount)}</option>`).join('')}</select></label>
+    ${eligibleScopes.length ? `<label class="characteristic-picker"><span>Comparable scope</span><select id="motif-characteristic-scope">${eligibleScopes.map((scope) => `<option value="${escapeHtml(scope.scope)}" ${scope.scope === selectedScope?.scope ? 'selected' : ''}>${escapeHtml(displayLabel(scope.scope))} · ${formatCount(scope.observationCount)}</option>`).join('')}<option value="all" ${selectedScope ? '' : 'selected'}>All scopes (mixed) · ${formatCount(selected.observationCount)}</option></select></label>` : ''}</div>
+    <div class="characteristic-chart-heading"><strong>${escapeHtml(displayLabel(selected.displayMetric))}${selectedScope ? ` · ${escapeHtml(displayLabel(selectedScope.scope))}` : ''}</strong><span>${formatCount(plotted.observationCount)} observations · ${formatCount(plotted.deviceCount)} devices · ${escapeHtml(plotted.unit)}</span></div>
+    ${characteristicScatterMarkup(plotted, adoptionYears(state.atlas.corpus_papers_by_year))}
+    <p class="characteristic-caution">Each point is a reported implementation value. Different devices and measurement targets are not a single longitudinal trajectory.</p>
   </section>`
 }
 
@@ -519,6 +537,13 @@ function bindTrendEvents(root = document) {
     const motifId = state.selected.motifs
     if (!motifId) return
     state.characteristicSelections[motifId] = event.target.value
+    refreshDetail()
+  })
+  root.querySelector('#motif-characteristic-scope')?.addEventListener('change', (event) => {
+    const motifId = state.selected.motifs
+    const seriesKey = state.characteristicSelections[motifId]
+    if (!motifId || !seriesKey) return
+    state.characteristicScopeSelections[`${motifId}|${seriesKey}`] = event.target.value
     refreshDetail()
   })
 }
