@@ -45,6 +45,21 @@ export function shouldMapCategoricalEdgeColors(view) {
   return view === 'motifs'
 }
 
+export function continuousYearColorConfig(view, nodes = []) {
+  if (view !== 'papers') return null
+  const years = nodes.map((node) => Number(node.year)).filter((year) => Number.isFinite(year) && year > 0)
+  if (!years.length) return null
+  const minimum = Math.min(...years)
+  const maximum = Math.max(...years)
+  return {
+    type: 'colormap',
+    attributes: 'year',
+    colormap: 'interpolateViridis',
+    domain: minimum === maximum ? [minimum - 1, maximum + 1] : [minimum, maximum],
+    alpha: 1,
+  }
+}
+
 /**
  * Build a sparse, symmetric similarity projection. Candidate pairs are found
  * through an inverted motif index and then limited to each node's strongest
