@@ -3,7 +3,7 @@ import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
 import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './engineering.js'
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
-import { networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels, shouldMapCategoricalEdgeColors } from './networkViews.js'
+import { continuousYearColorConfig, networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels, shouldMapCategoricalEdgeColors } from './networkViews.js'
 import { switchNetworkMode } from './networkInteraction.js'
 import { adoptionTimelineChartMarkup, CATEGORY10, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from './motifCharts.js'
 import { adoptionYears, motifCharacteristicTrends, motifTimelineGroups } from './motifTrends.js'
@@ -62,6 +62,8 @@ const app = document.querySelector('#app')
 let networkRuntime = null
 let renderVersion = 0
 let searchTimer = null
+let resultObserver = null
+let loadingMoreResults = false
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== '/' || ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
@@ -197,8 +199,7 @@ function resultsMarkup(items) {
   const shown = items.slice(0, state.resultLimit)
   return `<aside class="results-panel" aria-label="${VIEWS[state.view].label} results">
     <div class="panel-heading"><div><span>${VIEWS[state.view].label}</span><strong>${formatCount(items.length)}</strong></div></div>
-    <div class="result-list">${shown.map(resultCardMarkup).join('')}${shown.length ? '' : '<p class="empty-state">No matches.</p>'}</div>
-    ${items.length > shown.length ? `<button type="button" class="load-more" id="load-more">Show ${Math.min(40, items.length - shown.length)} more</button>` : ''}
+    <div class="result-list">${shown.map(resultCardMarkup).join('')}${shown.length ? '' : '<p class="empty-state">No matches.</p>'}${items.length > shown.length ? '<div class="result-load-sentinel" id="result-load-sentinel" aria-live="polite">Loading more…</div>' : ''}</div>
   </aside>`
 }
 
@@ -208,10 +209,12 @@ function networkTitle() {
   return 'Papers sharing motifs'
 }
 
-function networkPanelMarkup() {
+function networkPanelMarkup(graph = currentGraph()) {
+  const yearColor = continuousYearColorConfig(state.view, graph.nodes)
   return `<section class="network-panel" aria-label="${networkTitle()}">
     <div id="network" class="network-host"><div class="network-loading">Loading network…</div></div>
-    <div class="network-tuning">
+    <div class="network-tuning ${yearColor ? 'has-year-key' : ''}">
+      ${yearColor ? `<div class="year-color-key" aria-label="Continuous publication year color scale"><span>${yearColor.domain[0]}</span><i></i><span>${yearColor.domain[1]}</span></div>` : ''}
       <div class="network-actions network-footer-actions" aria-label="Network view controls"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
       <label><span>Node size</span><input id="node-size-scale" type="range" min="0.5" max="2" step="0.1" value="${state.nodeSizeScale}"/><output>${state.nodeSizeScale.toFixed(1)}×</output></label>
       <label><span>Edge opacity</span><input id="edge-opacity" type="range" min="0.05" max="1" step="0.05" value="${state.edgeOpacity}"/><output>${Math.round(state.edgeOpacity * 100)}%</output></label>
@@ -234,10 +237,10 @@ function adoptionPanelMarkup() {
   </section>`
 }
 
-function centerPanelMarkup() {
+function centerPanelMarkup(graph) {
   return state.view === 'motifs' && state.motifCenterView === 'adoption'
     ? adoptionPanelMarkup()
-    : networkPanelMarkup()
+    : networkPanelMarkup(graph)
 }
 
 function statGrid(items) {
@@ -399,7 +402,7 @@ function renderApp() {
   const items = activeItems()
   const base = baseGraph()
   const graph = { ...base, edges: filterEdgesByCategory(base.edges, state.edgeTypes[state.view]) }
-  app.innerHTML = `${headerMarkup()}${toolbarMarkup(base)}<main class="workspace">${resultsMarkup(items)}${centerPanelMarkup()}${detailPanelMarkup(graph)}</main>`
+  app.innerHTML = `${headerMarkup()}${toolbarMarkup(base)}<main class="workspace">${resultsMarkup(items)}${centerPanelMarkup(graph)}${detailPanelMarkup(graph)}</main>`
   bindUiEvents()
   if (state.view !== 'motifs' || state.motifCenterView === 'network') {
     const expectedVersion = renderVersion + 1
@@ -413,8 +416,38 @@ function renderApp() {
 }
 
 function bindResultEvents() {
-  document.querySelectorAll('[data-result-id]').forEach((button) => button.addEventListener('click', () => selectItem(button.dataset.resultId, true)))
-  document.querySelector('#load-more')?.addEventListener('click', () => { state.resultLimit += 40; updateLiveFiltering() })
+  resultObserver?.disconnect()
+  resultObserver = null
+  const list = document.querySelector('.result-list')
+  if (!list) return
+  list.addEventListener('click', (event) => {
+    const button = event.target.closest?.('[data-result-id]')
+    if (button) selectItem(button.dataset.resultId, true)
+  })
+  const sentinel = list.querySelector('#result-load-sentinel')
+  if (!sentinel) return
+  const loadNextPage = () => {
+    if (loadingMoreResults) return
+    const items = activeItems()
+    const start = state.resultLimit
+    if (start >= items.length) { sentinel.remove(); return }
+    loadingMoreResults = true
+    const end = Math.min(items.length, start + 40)
+    sentinel.insertAdjacentHTML('beforebegin', items.slice(start, end).map(resultCardMarkup).join(''))
+    state.resultLimit = end
+    if (end >= items.length) sentinel.remove()
+    loadingMoreResults = false
+  }
+  if ('IntersectionObserver' in window) {
+    resultObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadNextPage()
+    }, { root: list, rootMargin: '240px 0px' })
+    resultObserver.observe(sentinel)
+  } else {
+    list.addEventListener('scroll', () => {
+      if (list.scrollHeight - list.scrollTop - list.clientHeight < 240) loadNextPage()
+    }, { passive: true })
+  }
 }
 
 function updateFilterActions() {
@@ -656,6 +689,7 @@ async function renderNetwork(graph = currentGraph()) {
     .nodeAttribute('label', (_current, _id, ordinal) => nodes[ordinal].label)
     .nodeAttribute('category', (_current, _id, ordinal) => categoryIndex.get(categoryForNode(nodes[ordinal])) || 0, { type: AttributeType.Category })
     .nodeAttribute('score', (_current, _id, ordinal) => scores[ordinal], { type: AttributeType.Float })
+  if (state.view === 'papers') network.nodeAttribute('year', (_current, _id, ordinal) => Number(nodes[ordinal].year) || 0, { type: AttributeType.Float })
   if (validEdges.length) network.edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(edgeCategory(validEdges[ordinal])) || 0, { type: AttributeType.Category })
   network.setNodeAttributeCategoryDictionary('category', categories.map((category, id) => ({ id, label: displayLabel(category) })), { remapExisting: false })
   if (validEdges.length) network.setEdgeAttributeCategoryDictionary('category', edgeTypes.map((type, id) => ({ id, label: displayLabel(type) })), { remapExisting: false })
@@ -679,7 +713,8 @@ async function renderNetwork(graph = currentGraph()) {
   if (version !== renderVersion) { helios.destroy(); return }
   networkRuntime.ready = true
   const mapper = helios.behavior.mappers
-  mapper.setChannelConfig('node', 'color', { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
+  const yearColor = continuousYearColorConfig(state.view, nodes)
+  mapper.setChannelConfig('node', 'color', yearColor || { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
   mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [4, 12] })
   mapper.setChannelConfig('node', 'outline', { type: 'constant', value: .15 })
   if (edgeTypes.length && shouldMapCategoricalEdgeColors(state.view)) mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map((type, index) => `${EDGE_COLORS[type] || CATEGORY10[index % CATEGORY10.length]}c8`) })

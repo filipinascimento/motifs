@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { networkNodeSizeScore, projectedEntityNetwork, shouldMapCategoricalEdgeColors, similarityEdges } from '../src/networkViews.js'
+import { continuousYearColorConfig, networkNodeSizeScore, projectedEntityNetwork, shouldMapCategoricalEdgeColors, similarityEdges } from '../src/networkViews.js'
 
 const motifs = [
   { id: 'L1-A', label: 'Family A', level: 'L1' },
@@ -59,6 +59,17 @@ test('only motif networks map categorical edge colors', () => {
   assert.equal(shouldMapCategoricalEdgeColors('motifs'), true)
   assert.equal(shouldMapCategoricalEdgeColors('devices'), false)
   assert.equal(shouldMapCategoricalEdgeColors('papers'), false)
+})
+
+test('paper networks use a continuous numeric year colormap', () => {
+  assert.deepEqual(continuousYearColorConfig('papers', [{ year: 2003 }, { year: 2025 }, { year: '' }]), {
+    type: 'colormap',
+    attributes: 'year',
+    colormap: 'interpolateViridis',
+    domain: [2003, 2025],
+    alpha: 1,
+  })
+  assert.equal(continuousYearColorConfig('devices', [{ year: 2025 }]), null)
 })
 
 test('device view excludes L1 organizing families from similarity', () => {

@@ -250,8 +250,6 @@ a:focus-visible {
   scrollbar-gutter: stable;
 }
 
-.results-panel:has(.load-more) .result-list { height: calc(100% - 100px); }
-
 .result-card {
   width: 100%;
   display: flex;
@@ -337,16 +335,13 @@ a:focus-visible {
   text-transform: uppercase;
 }
 
-.load-more {
-  width: calc(100% - 24px);
-  height: 34px;
-  margin: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: #35534a;
-  background: #f7faf8;
-  cursor: pointer;
-  font-size: 12px;
+.result-load-sentinel {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  color: #74817c;
+  background: linear-gradient(180deg, rgba(247, 250, 248, 0), #f7faf8);
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -575,6 +570,28 @@ a:focus-visible {
   padding: 8px 16px;
   border-top: 1px solid var(--line);
   background: #fff;
+}
+
+.year-color-key {
+  min-width: 128px;
+  display: grid;
+  grid-template-columns: auto minmax(54px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: #65736d;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.network-tuning.has-year-key .year-color-key {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
+.year-color-key i {
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #440154, #31688e, #35b779, #fde725);
 }
 
 .network-footer-actions {
