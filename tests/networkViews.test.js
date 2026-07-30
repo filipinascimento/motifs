@@ -62,6 +62,31 @@ test('paper view links papers through motifs used by their devices', () => {
   assert.match(graph.note, /Papers are linked/)
 })
 
+test('selected device is promoted into a bounded network', () => {
+  const devices = {}
+  const papers = {}
+  for (let index = 1; index <= 25; index += 1) {
+    const deviceId = `DX${index}`
+    const paperId = `PX${index}`
+    devices[deviceId] = {
+      device_id: deviceId,
+      name: `Device ${index}`,
+      paper_id: paperId,
+      year: 2000 + index,
+      direct_motif_ids: ['L2-X'],
+      motif_ids: ['L2-X'],
+      records: index === 1 ? {} : { accepted_measurement_ids: Array(index).fill('value') },
+    }
+    papers[paperId] = { paper_id: paperId, title: `Paper ${index}`, year: 2000 + index, device_ids: [deviceId], records: {} }
+  }
+  const graph = projectedEntityNetwork({ indexes: { devices, papers } }, motifs, {
+    view: 'device', maxNodes: 20, minShared: 1, selectedId: 'DX1',
+  })
+  assert.equal(graph.nodes.length, 20)
+  assert.equal(graph.nodes[0].id, 'DX1')
+  assert.ok(graph.nodes.some((node) => node.id === 'DX1'))
+})
+
 test('mixed view emits only direct paper-device and device-motif links', () => {
   const graph = projectedEntityNetwork(characteristics, motifs, { view: 'mixed', maxNodes: 50 })
   assert.ok(graph.nodes.some((node) => node.type === 'paper'))

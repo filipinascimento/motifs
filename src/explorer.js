@@ -274,6 +274,9 @@ function baseGraph() {
   if (state.view === 'motifs') {
     let nodes = motifResults(state.atlas.nodes, { query: state.query, level: state.motifLevel, family: state.motifFamily })
     if (!state.query && state.motifLevel === 'all' && state.motifFamily === 'all') nodes = state.atlas.nodes
+    const selected = state.selected.motifs
+    const selectedNode = selected ? state.atlas.nodes.find((node) => node.id === selected) : null
+    if (selectedNode && !nodes.some((node) => node.id === selected)) nodes = [selectedNode, ...nodes]
     const ids = new Set(nodes.map((node) => node.id))
     return {
       view: 'motifs', nodes,
@@ -286,6 +289,7 @@ function baseGraph() {
     maxNodes: state.networkNodeLimit,
     minShared: state.minShared,
     topK: 8,
+    selectedId: state.selected[state.view],
   })
 }
 
