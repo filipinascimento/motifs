@@ -67,6 +67,23 @@ test('characteristic plots use logarithmic ticks while retaining a reported zero
   assert.match(markup, />1\.0e-8<\/text>/u)
   assert.match(markup, />1\.0e-4<\/text>/u)
   assert.doesNotMatch(markup, />-\d/u)
+  assert.match(markup, /class="chart-axis-domain"/u)
+  assert.match(markup, /class="chart-axis-tick"/u)
+})
+
+test('logarithmic characteristic axes use a niced D3 domain without raw endpoint grid lines', () => {
+  const markup = characteristicScatterMarkup({
+    displayMetric: 'thickness',
+    unit: 'cm',
+    observations: [
+      { year: 2020, bounds: { minimum: 5e-7, maximum: 5e-7, point: 5e-7 } },
+      { year: 2021, bounds: { minimum: 13, maximum: 13, point: 13 } },
+    ],
+  }, [2020, 2021])
+
+  assert.match(markup, />100<\/text>/u)
+  assert.match(markup, />1\.0e-6<\/text>/u)
+  assert.doesNotMatch(markup, />13<\/text>/u)
 })
 
 test('characteristic plots retain a linear axis for narrow ranges', () => {
