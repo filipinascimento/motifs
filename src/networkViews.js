@@ -14,12 +14,15 @@ function searchableText(...values) {
   return values.flat(Infinity).filter(Boolean).join(' ').toLocaleLowerCase()
 }
 
-function boundedNodes(nodes, maxNodes) {
-  return [...nodes]
+function boundedNodes(nodes, maxNodes, preferredId = '') {
+  const sorted = [...nodes]
     .sort((a, b) => Number(b.score || 0) - Number(a.score || 0)
       || Number(b.year || 0) - Number(a.year || 0)
       || a.label.localeCompare(b.label))
-    .slice(0, maxNodes)
+  if (!preferredId) return sorted.slice(0, maxNodes)
+  const preferred = sorted.find((node) => node.id === preferredId)
+  if (!preferred) return sorted.slice(0, maxNodes)
+  return [preferred, ...sorted.filter((node) => node.id !== preferredId)].slice(0, maxNodes)
 }
 
 function sharedSet(left, right) {
@@ -195,7 +198,7 @@ export function projectedEntityNetwork(characteristics, atlasNodes = [], options
     const candidates = view === 'device'
       ? deviceNodes(characteristics, atlasNodes, options)
       : paperNodes(characteristics, atlasNodes, options)
-    const nodes = boundedNodes(candidates, maxNodes)
+    const nodes = boundedNodes(candidates, maxNodes, options.selectedId)
     return {
       view,
       nodes,
