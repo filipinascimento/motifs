@@ -64,8 +64,8 @@ test('characteristic plots use logarithmic ticks while retaining a reported zero
   assert.match(markup, /logarithmic scale with reported zero baseline/u)
   assert.match(markup, /log scale · reported zero retained/u)
   assert.match(markup, />0<\/text>/u)
-  assert.match(markup, />1\.0e-8<\/text>/u)
-  assert.match(markup, />1\.0e-4<\/text>/u)
+  assert.match(markup, />10⁻⁸<\/text>/u)
+  assert.match(markup, />10⁻⁴<\/text>/u)
   assert.doesNotMatch(markup, />-\d/u)
   assert.match(markup, /class="chart-axis-domain"/u)
   assert.match(markup, /class="chart-axis-tick"/u)
@@ -81,8 +81,8 @@ test('logarithmic characteristic axes use a niced D3 domain without raw endpoint
     ],
   }, [2020, 2021])
 
-  assert.match(markup, />100<\/text>/u)
-  assert.match(markup, />1\.0e-6<\/text>/u)
+  assert.match(markup, />10²<\/text>/u)
+  assert.match(markup, />10⁻⁶<\/text>/u)
   assert.doesNotMatch(markup, />13<\/text>/u)
 })
 
