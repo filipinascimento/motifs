@@ -41,6 +41,10 @@ export function networkNodeSizeScore(view, node = {}, connectionCount = 0) {
   return Math.log1p(Number(node.paper_count || node.score || 1)) + 0.5 * Math.log1p(degree)
 }
 
+export function shouldMapCategoricalEdgeColors(view) {
+  return view === 'motifs'
+}
+
 /**
  * Build a sparse, symmetric similarity projection. Candidate pairs are found
  * through an inverted motif index and then limited to each node's strongest

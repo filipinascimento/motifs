@@ -3,7 +3,7 @@ import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
 import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './engineering.js'
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
-import { networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels } from './networkViews.js'
+import { networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels, shouldMapCategoricalEdgeColors } from './networkViews.js'
 import { switchNetworkMode } from './networkInteraction.js'
 import { adoptionTimelineChartMarkup, CATEGORY10, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from './motifCharts.js'
 import { adoptionYears, motifCharacteristicTrends, motifTimelineGroups } from './motifTrends.js'
@@ -177,7 +177,7 @@ function toolbarMarkup(graph = baseGraph()) {
     <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
     ${state.view === 'motifs' ? `<div class="center-view-switch" aria-label="Motif visualization"><button type="button" data-center-view="network" class="${state.motifCenterView === 'network' ? 'active' : ''}">Network</button><button type="button" data-center-view="adoption" class="${state.motifCenterView === 'adoption' ? 'active' : ''}">Adoption</button></div>` : ''}
     ${state.view !== 'motifs' || state.motifCenterView === 'network' ? `<div class="network-toolbar">
-      <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/><i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
+      <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/>${shouldMapCategoricalEdgeColors(state.view) ? `<i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>` : ''}${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
     </div>` : ''}
   </section>`
 }
@@ -682,7 +682,7 @@ async function renderNetwork(graph = currentGraph()) {
   mapper.setChannelConfig('node', 'color', { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
   mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [4, 12] })
   mapper.setChannelConfig('node', 'outline', { type: 'constant', value: .15 })
-  if (edgeTypes.length) mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map((type, index) => `${EDGE_COLORS[type] || CATEGORY10[index % CATEGORY10.length]}c8`) })
+  if (edgeTypes.length && shouldMapCategoricalEdgeColors(state.view)) mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map((type, index) => `${EDGE_COLORS[type] || CATEGORY10[index % CATEGORY10.length]}c8`) })
   helios.nodeOutlineWidthScale(5)
   helios.nodeOutlineWidthBase(.15)
   helios.nodeOutlineColor('#ffffff80')

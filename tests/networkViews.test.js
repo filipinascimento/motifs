@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { networkNodeSizeScore, projectedEntityNetwork, similarityEdges } from '../src/networkViews.js'
+import { networkNodeSizeScore, projectedEntityNetwork, shouldMapCategoricalEdgeColors, similarityEdges } from '../src/networkViews.js'
 
 const motifs = [
   { id: 'L1-A', label: 'Family A', level: 'L1' },
@@ -53,6 +53,12 @@ test('paper and device node radii use compressed visible degree', () => {
   assert.equal(networkNodeSizeScore('devices', {}, 4), 2)
   assert.equal(networkNodeSizeScore('papers', {}, 25), 5)
   assert.ok(networkNodeSizeScore('motifs', { paper_count: 20 }, 4) > Math.sqrt(4))
+})
+
+test('only motif networks map categorical edge colors', () => {
+  assert.equal(shouldMapCategoricalEdgeColors('motifs'), true)
+  assert.equal(shouldMapCategoricalEdgeColors('devices'), false)
+  assert.equal(shouldMapCategoricalEdgeColors('papers'), false)
 })
 
 test('device view excludes L1 organizing families from similarity', () => {
