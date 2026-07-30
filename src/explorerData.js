@@ -18,6 +18,11 @@ function includesQuery(values, query) {
   return tokens.every((token) => fields.some((field) => field.includes(token)))
 }
 
+function fieldsForScope(fieldMap, scope = 'all') {
+  if (!scope || scope === 'all') return Object.values(fieldMap).flat()
+  return asArray(fieldMap[scope])
+}
+
 function readablePaperTitle(paper = {}, index = {}) {
   const title = String(paper.title || index.title || '').trim()
   const citation = String(paper.citation || index.citation || '').trim()
@@ -46,10 +51,12 @@ export function motifResults(nodes = [], filters = {}) {
   return asArray(nodes)
     .filter((node) => !filters.level || filters.level === 'all' || node.level === filters.level)
     .filter((node) => !filters.family || filters.family === 'all' || familyForMotif(node) === filters.family || node.id === filters.family)
-    .filter((node) => includesQuery([
-      node.label, node.description, ...asArray(node.aliases),
-      ...asArray(node.facets).flatMap((facet) => [facet.label, facet.category]),
-    ], filters.query))
+    .filter((node) => includesQuery(fieldsForScope({
+      name: [node.label],
+      description: [node.description],
+      aliases: [node.id, ...asArray(node.aliases)],
+      facets: asArray(node.facets).flatMap((facet) => [facet.label, facet.category]),
+    }, filters.searchField), filters.query))
     .sort((a, b) => Number(b.paper_count || 0) - Number(a.paper_count || 0) || a.label.localeCompare(b.label))
 }
 
@@ -85,12 +92,15 @@ export function deviceCatalog(characteristics, atlasNodes = []) {
   })
 }
 
-export function deviceResults(devices = [], query = '') {
+export function deviceResults(devices = [], query = '', searchField = 'all') {
   return asArray(devices)
-    .filter((device) => includesQuery([
-      device.label, device.function, device.application, device.environment,
-      device.paper_title, device.doi, device.maturity, ...device.motif_labels,
-    ], query))
+    .filter((device) => includesQuery(fieldsForScope({
+      name: [device.label],
+      title: [device.paper_title],
+      description: [device.function, device.application, device.environment, device.maturity],
+      motifs: device.motif_labels,
+      identifiers: [device.id, device.doi, device.paper_id],
+    }, searchField), query))
     .sort((a, b) => Number(b.year || 0) - Number(a.year || 0) || a.label.localeCompare(b.label))
 }
 
@@ -119,12 +129,14 @@ export function paperCatalog(characteristics, atlasNodes = [], devices = []) {
   })
 }
 
-export function paperResults(papers = [], query = '') {
+export function paperResults(papers = [], query = '', searchField = 'all') {
   return asArray(papers)
-    .filter((paper) => includesQuery([
-      paper.label, paper.citation, paper.doi, paper.year,
-      ...paper.device_labels, ...paper.motif_labels,
-    ], query))
+    .filter((paper) => includesQuery(fieldsForScope({
+      title: [paper.label, paper.citation],
+      devices: paper.device_labels,
+      motifs: paper.motif_labels,
+      identifiers: [paper.id, paper.doi, paper.year],
+    }, searchField), query))
     .sort((a, b) => Number(b.year || 0) - Number(a.year || 0) || a.label.localeCompare(b.label))
 }
 

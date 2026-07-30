@@ -46,6 +46,9 @@ test('motif explorer filters by level, family, aliases, and ranks by paper count
   assert.equal(familyForMotif(motifs[1]), 'family')
   assert.deepEqual(motifResults(motifs, { family: 'family', level: 'L2' }).map((row) => row.id), ['wireless'])
   assert.deepEqual(motifResults(motifs, { query: 'inductive' }).map((row) => row.id), ['wireless'])
+  assert.deepEqual(motifResults(motifs, { query: 'wireless', searchField: 'name' }).map((row) => row.id), ['wireless'])
+  assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'name' }), [])
+  assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'aliases' }).map((row) => row.id), ['wireless'])
 })
 
 test('device explorer excludes organizing L1 motifs and searches paper and function fields', () => {
@@ -54,6 +57,8 @@ test('device explorer excludes organizing L1 motifs and searches paper and funct
   assert.equal(devices.find((row) => row.id === 'd1').paper_title, 'A wireless device')
   assert.deepEqual(deviceResults(devices, 'continuous').map((row) => row.id), ['d1'])
   assert.deepEqual(deviceResults(devices, 'stretchable').map((row) => row.id), ['d2'])
+  assert.deepEqual(deviceResults(devices, 'wireless', 'title').map((row) => row.id), ['d1'])
+  assert.deepEqual(deviceResults(devices, 'continuous', 'title'), [])
 })
 
 test('paper explorer derives motifs through devices and supports DOI and motif search', () => {
@@ -62,6 +67,9 @@ test('paper explorer derives motifs through devices and supports DOI and motif s
   assert.deepEqual(papers.find((row) => row.id === 'p1').motif_ids, ['wireless'])
   assert.deepEqual(paperResults(papers, 'wireless').map((row) => row.id), ['p1'])
   assert.deepEqual(paperResults(papers, '10.1/example').map((row) => row.id), ['p1'])
+  assert.deepEqual(paperResults(papers, 'skin patch', 'devices').map((row) => row.id), ['p1'])
+  assert.deepEqual(paperResults(papers, 'wireless', 'motifs').map((row) => row.id), ['p1'])
+  assert.deepEqual(paperResults(papers, '10.1/example', 'title'), [])
 })
 
 test('device details resolve only the selected device measurements and components', () => {

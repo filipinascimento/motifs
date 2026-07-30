@@ -86,6 +86,20 @@ test('paper view links papers through motifs used by their devices', () => {
   assert.match(graph.note, /Papers are linked/)
 })
 
+test('entity projections accept the exact result IDs from scoped search', () => {
+  const devices = projectedEntityNetwork(characteristics, motifs, {
+    view: 'device', nodeIds: ['D2'], minShared: 1, maxNodes: 50,
+  })
+  assert.deepEqual(devices.nodes.map((node) => node.id), ['D2'])
+  assert.equal(devices.edges.length, 0)
+
+  const papers = projectedEntityNetwork(characteristics, motifs, {
+    view: 'paper', nodeIds: [], minShared: 1, maxNodes: 50,
+  })
+  assert.deepEqual(papers.nodes, [])
+  assert.deepEqual(papers.edges, [])
+})
+
 test('selected device is promoted into a bounded network', () => {
   const devices = {}
   const papers = {}
