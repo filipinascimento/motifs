@@ -18,17 +18,23 @@ function pathFromPoints(points) {
   return points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
 }
 
-export function motifSparklineMarkup(node, years) {
-  if (!years.length) return ''
+function adoptionPlotYear(year) {
+  return Number(year) !== 2026
+}
+
+export function motifSparklineMarkup(node, corpusPapersByYear) {
+  const series = motifAdoptionSeries(node, corpusPapersByYear).filter((item) => adoptionPlotYear(item.year))
+  if (!series.length) return ''
+  const years = series.map((item) => item.year)
   const width = 74
   const height = 28
-  const counts = years.map((year) => Number(node.annual_paper_counts?.[year] || 0))
-  const maximum = Math.max(1, ...counts)
+  const shares = series.map((item) => item.share)
+  const maximum = Math.max(Number.EPSILON, ...shares)
   const x = (index) => 1 + index * (width - 2) / Math.max(1, years.length - 1)
   const y = (value) => height - 2 - value * (height - 5) / maximum
-  const points = counts.map((value, index) => [x(index), y(value)])
+  const points = shares.map((value, index) => [x(index), y(value)])
   const area = `${pathFromPoints(points)} L${width - 1},${height - 1} L1,${height - 1} Z`
-  return `<svg class="motif-sparkline" viewBox="0 0 ${width} ${height}" aria-label="Annual paper usage from ${years[0]} to ${years.at(-1)}" role="img"><path class="spark-area" d="${area}"/><path class="spark-line" d="${pathFromPoints(points)}"/></svg>`
+  return `<svg class="motif-sparkline" viewBox="0 0 ${width} ${height}" aria-label="Relative annual paper share from ${years[0]} to ${years.at(-1)}" role="img"><title>Relative paper share by year</title><path class="spark-area" d="${area}"/><path class="spark-line" d="${pathFromPoints(points)}"/></svg>`
 }
 
 export function adoptionTimelineChartMarkup({
@@ -39,7 +45,8 @@ export function adoptionTimelineChartMarkup({
   measure = 'papers',
   selectedId = null,
 }) {
-  if (!nodes.length) return `<article class="adoption-chart-card"><h3>${escapeHtml(title)}</h3><p class="timeline-empty">No motifs meet this definition.</p></article>`
+  const plotYears = years.filter(adoptionPlotYear)
+  if (!nodes.length || !plotYears.length) return `<article class="adoption-chart-card"><h3>${escapeHtml(title)}</h3><p class="timeline-empty">No motifs meet this definition.</p></article>`
   const width = 760
   const height = 250
   const margin = { left: 48, right: 14, top: 12, bottom: 31 }
@@ -47,19 +54,23 @@ export function adoptionTimelineChartMarkup({
   const plotHeight = height - margin.top - margin.bottom
   const series = nodes.map((node) => ({
     node,
-    values: motifAdoptionSeries(node, corpusPapersByYear).map((item) => measure === 'share' ? item.share * 100 : item.papers),
+    values: plotYears.map((year) => {
+      const papers = Number(node.annual_paper_counts?.[year] || 0)
+      const corpusPapers = Number(corpusPapersByYear[year] || 0)
+      return measure === 'share' ? (corpusPapers ? 100 * papers / corpusPapers : 0) : papers
+    }),
   }))
   const maximum = Math.max(1, ...series.flatMap((item) => item.values))
-  const x = (year) => margin.left + (year - years[0]) * plotWidth / Math.max(1, years.at(-1) - years[0])
+  const x = (year) => margin.left + (year - plotYears[0]) * plotWidth / Math.max(1, plotYears.at(-1) - plotYears[0])
   const y = (value) => margin.top + plotHeight - value * plotHeight / maximum
   const yTicks = [0, .25, .5, .75, 1].map((fraction) => ({ value: maximum * fraction, y: y(maximum * fraction) }))
-  const xTicks = years.filter((year, index) => index === 0 || index === years.length - 1 || year % 5 === 0)
+  const xTicks = plotYears.filter((year, index) => index === 0 || index === plotYears.length - 1 || year % 5 === 0)
   return `<article class="adoption-chart-card"><h3>${escapeHtml(title)}</h3>
     <svg class="adoption-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(title)}">
       ${yTicks.map((tick) => `<line class="chart-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${tick.y}" y2="${tick.y}"/><text class="chart-axis" x="${margin.left - 8}" y="${tick.y + 4}" text-anchor="end">${measure === 'share' ? `${formatAxis(tick.value)}%` : formatAxis(tick.value)}</text>`).join('')}
       ${xTicks.map((year) => `<text class="chart-axis" x="${x(year)}" y="${height - 9}" text-anchor="middle">${year}</text>`).join('')}
       ${series.map(({ node, values }, index) => {
-        const points = years.map((year, yearIndex) => [x(year), y(values[yearIndex])])
+        const points = plotYears.map((year, yearIndex) => [x(year), y(values[yearIndex])])
         const path = pathFromPoints(points)
         return `<path class="adoption-hit-target" data-adoption-id="${escapeHtml(node.id)}" d="${path}" aria-hidden="true"/><path class="adoption-line ${selectedId === node.id ? 'selected' : ''}" data-adoption-id="${escapeHtml(node.id)}" d="${path}" style="--series-color:${CATEGORY10[index % CATEGORY10.length]}"><title>${escapeHtml(node.label)}</title></path>`
       }).join('')}
@@ -69,7 +80,7 @@ export function adoptionTimelineChartMarkup({
 }
 
 export function detailAdoptionChartMarkup(node, corpusPapersByYear, measure = 'papers') {
-  const series = motifAdoptionSeries(node, corpusPapersByYear)
+  const series = motifAdoptionSeries(node, corpusPapersByYear).filter((item) => adoptionPlotYear(item.year))
   if (!series.length) return ''
   const width = 340
   const height = 145
