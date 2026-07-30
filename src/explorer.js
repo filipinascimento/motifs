@@ -49,7 +49,7 @@ const state = {
   nodeSizeScale: .7,
   edgeOpacity: .65,
   motifCenterView: 'network',
-  adoptionMeasure: 'papers',
+  adoptionMeasure: 'share',
   characteristicSelections: {},
   appliedFilters: { motifs: null, devices: null, papers: null },
   edgeTypes: { motifs: null, devices: null, papers: null },
@@ -501,8 +501,13 @@ function refreshDetail() {
 
 function bindTrendEvents(root = document) {
   if (!root) return
-  root.querySelectorAll('[data-adoption-id]').forEach((element) => element.addEventListener('click', () => {
+  root.querySelectorAll('[data-adoption-id]').forEach((element) => element.addEventListener('click', (event) => {
+    event.stopPropagation()
     selectItem(element.dataset.adoptionId, false)
+  }))
+  root.querySelectorAll('.adoption-chart').forEach((chart) => chart.addEventListener('click', (event) => {
+    if (event.target.closest?.('[data-adoption-id]')) return
+    clearSelection(false)
   }))
   root.querySelectorAll('[data-adoption-measure]').forEach((button) => button.addEventListener('click', () => {
     if (state.adoptionMeasure === button.dataset.adoptionMeasure) return
@@ -525,6 +530,16 @@ function selectItem(id, syncNetwork = false) {
   document.querySelectorAll('[data-adoption-id]').forEach((element) => element.classList.toggle('selected', element.dataset.adoptionId === id))
   refreshDetail()
   if (syncNetwork) syncNetworkSelection('node', id)
+  updateUrl()
+}
+
+function clearSelection(syncNetwork = false) {
+  state.selected[state.view] = null
+  state.selectedEdge = null
+  document.querySelectorAll('[data-result-id]').forEach((button) => button.classList.remove('selected'))
+  document.querySelectorAll('[data-adoption-id]').forEach((element) => element.classList.remove('selected'))
+  refreshDetail()
+  if (syncNetwork) clearNetworkSelection()
   updateUrl()
 }
 
@@ -557,6 +572,13 @@ function syncNetworkSelection(kind, id) {
     selection.selectEdges([index], { mode: 'replace', silent: true })
     selection.selectNodes([], { mode: 'replace', silent: true })
   }
+}
+
+function clearNetworkSelection() {
+  const selection = networkRuntime?.helios?.behavior?.selection
+  if (!selection || !networkRuntime?.ready) return
+  selection.selectNodes([], { mode: 'replace', silent: true })
+  selection.selectEdges([], { mode: 'replace', silent: true })
 }
 
 function applyLiveHighlights() {
@@ -650,6 +672,9 @@ async function renderNetwork(graph = currentGraph()) {
   helios.on(EVENTS.EDGE_CLICK, (event) => {
     const id = edgeId.get(Number(event.detail?.index))
     if (id) selectEdge(id, networkRuntime.graph, false)
+  })
+  helios.on(EVENTS.GRAPH_CLICK, (event) => {
+    if (!event.detail?.kind) clearSelection(true)
   })
   bindNetworkActions(helios)
   const selected = state.selected[state.view]
