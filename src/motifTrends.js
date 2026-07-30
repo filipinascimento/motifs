@@ -133,6 +133,21 @@ export function motifCharacteristicTrends(
         return counts
       }, {})
       const categories = Object.keys(categoryCounts).sort()
+      const scopes = [...observations.reduce((groups, observation) => {
+        const scope = observation.scope || 'unspecified'
+        if (!groups.has(scope)) groups.set(scope, [])
+        groups.get(scope).push(observation)
+        return groups
+      }, new Map()).entries()]
+        .map(([scope, scopeObservations]) => ({
+          scope,
+          observationCount: scopeObservations.length,
+          deviceCount: new Set(scopeObservations.map((item) => item.device_id).filter(Boolean)).size,
+          observations: scopeObservations,
+        }))
+        .sort((a, b) => b.observationCount - a.observationCount
+          || b.deviceCount - a.deviceCount
+          || a.scope.localeCompare(b.scope))
       return {
         key,
         category: categories.length === 1 ? categories[0] : 'combined',
@@ -144,6 +159,7 @@ export function motifCharacteristicTrends(
         observationCount: observations.length,
         deviceCount: new Set(observations.map((item) => item.device_id).filter(Boolean)).size,
         observations,
+        scopes,
       }
     })
     .sort((a, b) => b.observationCount - a.observationCount

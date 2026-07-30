@@ -846,6 +846,12 @@ a:focus-visible {
   margin: 10px 0 13px;
 }
 
+.characteristic-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .72fr);
+  gap: 8px;
+}
+
 .characteristic-picker > span {
   color: #77837e;
   font-size: 9px;
@@ -877,10 +883,20 @@ a:focus-visible {
 
 .characteristic-chart-heading strong { color: #34433d; font-size: 11px; }
 .characteristic-chart-heading span { color: #7a8681; font-size: 8px; text-align: right; }
+.characteristic-caution {
+  margin: 7px 0 0;
+  color: #7a8681;
+  font-size: 9px;
+  line-height: 1.35;
+}
 .scatter-range { stroke: #73a99e; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .scatter-point { fill: #147d70; fill-opacity: .7; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .scatter-point:hover { fill-opacity: 1; stroke: #174c43; stroke-width: 1.5; }
 .chart-note { fill: #7a8681; font-size: 8px; font-weight: 650; }
+
+@media (max-width: 520px) {
+  .characteristic-controls { grid-template-columns: 1fr; }
+}
 
 .detail-section h4 {
   margin: 11px 0 5px;

@@ -69,4 +69,33 @@ test('characteristic trends merge category partitions while preserving unit comp
   assert.equal(result.series[0].category, 'combined')
   assert.deepEqual(result.series[0].categories, ['fabrication', 'geometry'])
   assert.deepEqual(result.series[0].categoryCounts, { geometry: 6, fabrication: 5 })
+  assert.equal(result.series[0].scopes.length, 1)
+  assert.equal(result.series[0].scopes[0].scope, 'unspecified')
+  assert.equal(result.series[0].scopes[0].observationCount, 11)
+})
+
+test('characteristic trends preserve comparable scope partitions', () => {
+  const nodes = [{ id: 'M', parent_ids: [] }]
+  const implementations = Array.from({ length: 12 }, (_, index) => ({
+    implementation_id: `I${index}`,
+    device_id: `D${index}`,
+    direct_motif_ids: ['M'],
+  }))
+  const observations = Array.from({ length: 12 }, (_, index) => ({
+    observation_id: `O${index}`,
+    implementation_id: `I${index}`,
+    device_id: `D${index}`,
+    year: 2010 + index,
+    category: 'geometry',
+    metric: 'thickness',
+    normalized_value: index + 1,
+    normalized_unit: 'cm',
+    scope: index < 8 ? 'component' : 'whole_device',
+    plottable: true,
+  }))
+  const result = motifCharacteristicTrends('M', { implementations, observations }, nodes)
+  assert.deepEqual(result.series[0].scopes.map((scope) => [scope.scope, scope.observationCount, scope.deviceCount]), [
+    ['component', 8, 8],
+    ['whole_device', 4, 4],
+  ])
 })
