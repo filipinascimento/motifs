@@ -15,6 +15,19 @@ function formatAxis(value) {
   return Number(number.toPrecision(3)).toLocaleString()
 }
 
+const SUPERSCRIPT_DIGITS = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
+
+function formatLogAxis(value) {
+  const number = Number(value)
+  if (number === 0) return '0'
+  if (!Number.isFinite(number) || number < 0) return formatAxis(number)
+  const exponent = Math.log10(number)
+  const integerExponent = Math.round(exponent)
+  if (Math.abs(exponent - integerExponent) > 1e-10) return formatAxis(number)
+  const superscript = String(integerExponent).split('').map((digit) => SUPERSCRIPT_DIGITS[digit] || digit).join('')
+  return `10${superscript}`
+}
+
 function pathFromPoints(points) {
   return points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
 }
@@ -158,7 +171,7 @@ export function characteristicScatterMarkup(series, years = []) {
   }
   const scaleDescription = logScale ? `, logarithmic scale${hasZero ? ' with reported zero baseline' : ''}` : ''
   return `<svg class="characteristic-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(series.displayMetric)} over time in ${escapeHtml(series.unit)}${scaleDescription}">
-    ${yTicks.map((value) => `<line class="chart-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}"/><line class="chart-axis-tick" x1="${margin.left - 4}" x2="${margin.left}" y1="${y(value)}" y2="${y(value)}"/><text class="chart-axis" x="${margin.left - 7}" y="${y(value) + 4}" text-anchor="end">${escapeHtml(formatAxis(value))}</text>`).join('')}
+    ${yTicks.map((value) => `<line class="chart-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}"/><line class="chart-axis-tick" x1="${margin.left - 4}" x2="${margin.left}" y1="${y(value)}" y2="${y(value)}"/><text class="chart-axis" x="${margin.left - 7}" y="${y(value) + 4}" text-anchor="end">${escapeHtml(logScale ? formatLogAxis(value) : formatAxis(value))}</text>`).join('')}
     <line class="chart-axis-domain" x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${margin.top + plotHeight}"/><line class="chart-axis-domain" x1="${margin.left}" x2="${width - margin.right}" y1="${margin.top + plotHeight}" y2="${margin.top + plotHeight}"/>
     ${xTicks.map((year) => `<line class="chart-axis-tick" x1="${x(year)}" x2="${x(year)}" y1="${margin.top + plotHeight}" y2="${margin.top + plotHeight + 4}"/><text class="chart-axis" x="${x(year)}" y="${height - 9}" text-anchor="middle">${year}</text>`).join('')}
     ${series.observations.map((item) => {
