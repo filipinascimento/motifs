@@ -12,6 +12,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "d3-scale": "^4.0.2",
     "helios-network": "^0.10.4",
     "helios-web": "^0.10.9"
   },

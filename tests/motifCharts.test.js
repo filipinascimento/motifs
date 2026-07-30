@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { adoptionTimelineChartMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from '../src/motifCharts.js'
+import { adoptionTimelineChartMarkup, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from '../src/motifCharts.js'
 
 test('adoption timelines provide forgiving curve hit targets', () => {
   const years = [2020, 2021, 2022]
@@ -47,4 +47,38 @@ test('adoption visuals exclude 2026 without changing source data', () => {
   assert.match(detail, />2025<\/text>/u)
   assert.doesNotMatch(detail, />2026<\/text>/u)
   assert.equal(node.annual_paper_counts[2026], 10)
+})
+
+test('characteristic plots use logarithmic ticks while retaining a reported zero', () => {
+  const markup = characteristicScatterMarkup({
+    displayMetric: 'thickness',
+    unit: 'cm',
+    observations: [
+      { year: 2020, bounds: { minimum: 0, maximum: 0, point: 0 } },
+      { year: 2021, bounds: { minimum: 1e-8, maximum: 1e-8, point: 1e-8 } },
+      { year: 2022, bounds: { minimum: 1e-4, maximum: 1e-4, point: 1e-4 } },
+      { year: 2023, bounds: { minimum: 1, maximum: 1, point: 1 } },
+    ],
+  }, [2020, 2021, 2022, 2023])
+
+  assert.match(markup, /logarithmic scale with reported zero baseline/u)
+  assert.match(markup, /log scale · reported zero retained/u)
+  assert.match(markup, />0<\/text>/u)
+  assert.match(markup, />1\.0e-8<\/text>/u)
+  assert.match(markup, />1\.0e-4<\/text>/u)
+  assert.doesNotMatch(markup, />-\d/u)
+})
+
+test('characteristic plots retain a linear axis for narrow ranges', () => {
+  const markup = characteristicScatterMarkup({
+    displayMetric: 'voltage',
+    unit: 'V',
+    observations: [
+      { year: 2020, bounds: { minimum: 1, maximum: 1, point: 1 } },
+      { year: 2021, bounds: { minimum: 2, maximum: 2, point: 2 } },
+    ],
+  }, [2020, 2021])
+
+  assert.doesNotMatch(markup, /log scale/u)
+  assert.doesNotMatch(markup, /logarithmic scale/u)
 })
