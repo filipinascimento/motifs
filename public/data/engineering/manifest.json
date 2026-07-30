@@ -1,0 +1,131 @@
+{
+  "schema_id": "public-rogers-engineering-shards",
+  "schema_version": "1.0.0",
+  "generated_at": "2026-07-30T02:02:20.208306+00:00",
+  "bundle_schema_id": "rogers-engineering-frontend-bundle",
+  "bundle_schema_version": "1.0.0",
+  "bundle_qa_passed": true,
+  "public_release": {
+    "contains_article_pdfs": false,
+    "contains_full_text": false,
+    "contains_source_quotations": false,
+    "contains_page_or_block_provenance": false,
+    "contains_local_paths": false,
+    "contains_quarantined_records": false,
+    "contains_paper_titles_and_dois": true,
+    "contains_device_and_variant_records": true,
+    "contains_accepted_normalized_measurements": true,
+    "contains_complete_atomic_graph": true
+  },
+  "counts": {
+    "papers": 901,
+    "devices": 1057,
+    "device_variants": 1284,
+    "components": 5162,
+    "interfaces": 3834,
+    "motifs": 702,
+    "accepted_measurements": 4505,
+    "plot_measurements": 3554,
+    "relationships": 1476,
+    "failures": 168,
+    "constraints": 446,
+    "coverage": 25140,
+    "graph_nodes": 12940,
+    "graph_edges": 25743
+  },
+  "measurements": {
+    "plot_policy": "Only accepted, normalized, finite numeric values/ranges/bounds enter plots. Quarantined records are not included in the public release."
+  },
+  "shards": [
+    {
+      "path": "entities.json.gz",
+      "target": "entities",
+      "merge": "replace",
+      "rows": 12940,
+      "bytes": 1948880,
+      "uncompressed_bytes": 10645861,
+      "sha256": "00e5fdd6f77a41e7a1260ab9b79cfaca237ca2cfd5d78b0c402ca904fd4012da",
+      "content_sha256": "6240c87a5b4fe30d96fbd23a2115704712f9a7f601db821bb29e2a666ae37a02"
+    },
+    {
+      "path": "measurements-2003-2010.json.gz",
+      "target": "measurements.accepted",
+      "merge": "concat",
+      "rows": 1013,
+      "bytes": 80424,
+      "uncompressed_bytes": 1311486,
+      "sha256": "760171c8a5278d85132e85c8bf783e88ebe1641b7efd2b6ea983d90d8d488202",
+      "content_sha256": "9fd0d76b46079099cbe30b8e1da61c92519789368e616e64b47225ae64f3e6bb"
+    },
+    {
+      "path": "measurements-2011-2016.json.gz",
+      "target": "measurements.accepted",
+      "merge": "concat",
+      "rows": 1439,
+      "bytes": 108512,
+      "uncompressed_bytes": 1856465,
+      "sha256": "7fca6cab301d610b2c25912960122267826b73bd26abdb12fc5df8d07e328629",
+      "content_sha256": "26188de14eb79716858a446266608b80d2c5f6c5c5686e74e9f7b888bcaee55c"
+    },
+    {
+      "path": "measurements-2017-2021.json.gz",
+      "target": "measurements.accepted",
+      "merge": "concat",
+      "rows": 1330,
+      "bytes": 94598,
+      "uncompressed_bytes": 1681778,
+      "sha256": "26ed41fedf2a6b65aeb0be0ab2259617b99ded674fd506f8e0cdcdece4bbffa6",
+      "content_sha256": "1b150464b5632f64f5ceb1ad5e655d741d6c8d6c0ba56df64df08b21517abd4e"
+    },
+    {
+      "path": "measurements-2022-2026.json.gz",
+      "target": "measurements.accepted",
+      "merge": "concat",
+      "rows": 723,
+      "bytes": 56968,
+      "uncompressed_bytes": 923340,
+      "sha256": "89bb144dda817c33a03648089e15171a382b8921cb6a008684935bd8befdfbc7",
+      "content_sha256": "6c4d262e88852562ff274a878af8aa428e62c6881b53d812d89a877958e9286c"
+    },
+    {
+      "path": "measurement-plots.json.gz",
+      "target": "measurements.plot_points",
+      "merge": "replace",
+      "rows": 3554,
+      "bytes": 229757,
+      "uncompressed_bytes": 2884013,
+      "sha256": "54229dfe7501c9aab02d585fb847af980df20ca7462a6fdd827f6fb322e5dd35",
+      "content_sha256": "484d1ba07dbcf905036cf4057b2422f4b75dcd1cf63affc0b2eb53cac0464a5b"
+    },
+    {
+      "path": "knowledge.json.gz",
+      "target": "knowledge",
+      "merge": "replace",
+      "rows": 27230,
+      "bytes": 1370027,
+      "uncompressed_bytes": 28937981,
+      "sha256": "73dfb41a6562d98862ba985afc67fcfb18fc95729f1f9947a40b542970e616d0",
+      "content_sha256": "f1296410f0befd1b8329b2a22a79c44df237da0c4abfecf6c7000dca3975ac18"
+    },
+    {
+      "path": "indexes.json.gz",
+      "target": "indexes",
+      "merge": "replace",
+      "rows": 0,
+      "bytes": 3397744,
+      "uncompressed_bytes": 19452666,
+      "sha256": "933a0d8d7f614bc47f6801651c1cf6e212be717f01fbc9750e0dc30124e57a4f",
+      "content_sha256": "5f4c4b0ff00307ba26a184b2a41c36288f15cbc6839d49f90bbba8eadd326944"
+    },
+    {
+      "path": "graph.json.gz",
+      "target": "graph",
+      "merge": "replace",
+      "rows": 38683,
+      "bytes": 934731,
+      "uncompressed_bytes": 9703556,
+      "sha256": "36023ec2da258e76ce3072d7c31c87fa4f42c472718190ff29d522a5289429de",
+      "content_sha256": "52faac3a3bdecb0d6195bf211c9aea8c78949fe0738af3878ac9b4dadb766402"
+    }
+  ]
+}

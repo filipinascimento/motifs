@@ -5,21 +5,26 @@ production site is published at
 [filipinascimento.github.io/motifs](https://filipinascimento.github.io/motifs/).
 
 The application has no API, database, or application server. GitHub Pages
-serves the generated HTML, CSS, JavaScript, Web Workers, and a sanitized JSON
-export. Filtering, search, layout, and interaction run in the visitor's
-browser.
+serves the generated HTML, CSS, JavaScript, Web Workers, and sanitized JSON
+exports. Filtering, search, gzip decompression, graph projection, layout, and
+interaction run in the visitor's browser.
 
 ## Public-data boundary
 
 This repository contains derived motif labels, descriptions, relationships,
-aggregate counts, timelines, aliases, facets, and reviewed single-paper motif
-observations. It intentionally does not contain article PDFs, evidence excerpts,
-per-paper identifiers, full-text extraction caches, internal run folders, or
-local filesystem paths. Full papers remain in the private corpus and must never
-be copied into this repository.
+aggregate counts, timelines, aliases, facets, reviewed observations, paper
+titles and DOIs, device and variant records, component/motif assignments,
+accepted normalized measurements, structured engineering relationships,
+failures, constraints, coverage decisions, and the complete atomic entity
+graph. These records describe papers already publicly available online.
 
-The public-data tool removes the internal source path, evidence samples, and
-per-paper identifiers, and rejects common full-text fields or local paths:
+It intentionally does not contain article PDFs, full text, source quotations,
+page/block extraction provenance, quarantined records, internal run folders,
+or local filesystem paths. Full papers and private extraction artifacts must
+never be copied into this repository.
+
+The motif public-data tool removes private source paths, evidence samples, and
+internal paper identifiers from the aggregate motif atlas:
 
 ```bash
 node scripts/public_data.mjs export \
@@ -29,8 +34,19 @@ node scripts/public_data.mjs export \
   --aliases config/search_aliases.json
 ```
 
-Review the generated diff before committing it. The automated build runs the
-same public-data checks again.
+The engineering export is split into compressed shards so every file stays
+well below GitHub's file limit:
+
+```bash
+node scripts/public_engineering_data.mjs export \
+  /path/to/private/frontend_engineering_bundle.json \
+  public/data/engineering
+```
+
+The manifest separates entities, the full graph, indexes, knowledge records,
+plot points, and four chronological measurement groups. Review generated
+changes before committing them. The automated build validates both public
+datasets and reruns the frontend tests.
 
 ## Search behavior
 
