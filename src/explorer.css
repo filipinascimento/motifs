@@ -659,13 +659,21 @@ a:focus-visible {
   stroke: var(--series-color);
   stroke-width: 2;
   opacity: .78;
-  cursor: pointer;
-  pointer-events: stroke;
+  pointer-events: none;
   vector-effect: non-scaling-stroke;
   transition: opacity .12s, stroke-width .12s;
 }
 
-.adoption-line:hover,
+.adoption-hit-target {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: pointer;
+  pointer-events: stroke;
+  vector-effect: non-scaling-stroke;
+}
+
+.adoption-hit-target:hover + .adoption-line,
 .adoption-line.selected {
   opacity: 1;
   stroke-width: 4;

@@ -60,7 +60,8 @@ export function adoptionTimelineChartMarkup({
       ${xTicks.map((year) => `<text class="chart-axis" x="${x(year)}" y="${height - 9}" text-anchor="middle">${year}</text>`).join('')}
       ${series.map(({ node, values }, index) => {
         const points = years.map((year, yearIndex) => [x(year), y(values[yearIndex])])
-        return `<path class="adoption-line ${selectedId === node.id ? 'selected' : ''}" data-adoption-id="${escapeHtml(node.id)}" d="${pathFromPoints(points)}" style="--series-color:${CATEGORY10[index % CATEGORY10.length]}"><title>${escapeHtml(node.label)}</title></path>`
+        const path = pathFromPoints(points)
+        return `<path class="adoption-hit-target" data-adoption-id="${escapeHtml(node.id)}" d="${path}" aria-hidden="true"/><path class="adoption-line ${selectedId === node.id ? 'selected' : ''}" data-adoption-id="${escapeHtml(node.id)}" d="${path}" style="--series-color:${CATEGORY10[index % CATEGORY10.length]}"><title>${escapeHtml(node.label)}</title></path>`
       }).join('')}
     </svg>
     <div class="adoption-legend">${nodes.map((node, index) => `<button type="button" class="${selectedId === node.id ? 'selected' : ''}" data-adoption-id="${escapeHtml(node.id)}" style="--series-color:${CATEGORY10[index % CATEGORY10.length]}"><i></i><span>${escapeHtml(node.label)}</span></button>`).join('')}</div>
