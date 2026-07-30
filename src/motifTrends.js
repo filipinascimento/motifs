@@ -83,7 +83,6 @@ function seriesIdentity(observation = {}) {
   const metric = observation.metric || 'other'
   const specificMetric = metric === 'other' ? (observation.model_metric || 'other') : ''
   return [
-    observation.category || 'other',
     metric,
     specificMetric,
     observation.normalized_unit || '',
@@ -125,12 +124,20 @@ export function motifCharacteristicTrends(
   const series = [...groups.entries()]
     .filter(([, group]) => group.observations.length > minObservationsExclusive)
     .map(([key, group]) => {
-      const [category, metric, specificMetric, unit] = group.identity
+      const [metric, specificMetric, unit] = group.identity
       const observations = group.observations.sort((a, b) => Number(a.year) - Number(b.year)
         || String(a.observation_id || '').localeCompare(String(b.observation_id || '')))
+      const categoryCounts = observations.reduce((counts, observation) => {
+        const category = observation.category || 'other'
+        counts[category] = (counts[category] || 0) + 1
+        return counts
+      }, {})
+      const categories = Object.keys(categoryCounts).sort()
       return {
         key,
-        category,
+        category: categories.length === 1 ? categories[0] : 'combined',
+        categories,
+        categoryCounts,
         metric,
         displayMetric: specificMetric || metric,
         unit,
