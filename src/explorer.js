@@ -92,6 +92,10 @@ function familyLabel(id) {
   return state.atlas.nodes.find((node) => node.id === id)?.label || 'Unassigned'
 }
 
+function networkCategoryLabel(category) {
+  return state.view === 'motifs' ? familyLabel(category) : displayLabel(category)
+}
+
 function motifLabel(id) {
   return state.atlas.nodes.find((node) => node.id === id)?.label || id
 }
@@ -691,7 +695,7 @@ async function renderNetwork(graph = currentGraph()) {
     .nodeAttribute('score', (_current, _id, ordinal) => scores[ordinal], { type: AttributeType.Float })
   if (state.view === 'papers') network.nodeAttribute('year', (_current, _id, ordinal) => Number(nodes[ordinal].year) || 0, { type: AttributeType.Float })
   if (validEdges.length) network.edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(edgeCategory(validEdges[ordinal])) || 0, { type: AttributeType.Category })
-  network.setNodeAttributeCategoryDictionary('category', categories.map((category, id) => ({ id, label: displayLabel(category) })), { remapExisting: false })
+  network.setNodeAttributeCategoryDictionary('category', categories.map((category, id) => ({ id, label: networkCategoryLabel(category) })), { remapExisting: false })
   if (validEdges.length) network.setEdgeAttributeCategoryDictionary('category', edgeTypes.map((type, id) => ({ id, label: displayLabel(type) })), { remapExisting: false })
   host.innerHTML = '<div id="network-stage" class="network-stage"></div>'
   const helios = new Helios(network, {
