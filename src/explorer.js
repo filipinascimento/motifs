@@ -5,6 +5,8 @@ import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './en
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
 import { projectedEntityNetwork, sharedMotifLabels } from './networkViews.js'
 import { switchNetworkMode } from './networkInteraction.js'
+import { adoptionTimelineChartMarkup, CATEGORY10, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from './motifCharts.js'
+import { adoptionYears, motifCharacteristicTrends, motifTimelineGroups } from './motifTrends.js'
 import {
   componentsForDevice,
   deviceCatalog,
@@ -18,7 +20,6 @@ import {
   paperResults,
 } from './explorerData.js'
 
-const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 const EDGE_COLORS = {
   lifecycle: '#1f77b4',
   parent_of: '#ff7f0e',
@@ -47,6 +48,9 @@ const state = {
   showLabels: false,
   nodeSizeScale: 1,
   edgeOpacity: .65,
+  motifCenterView: 'network',
+  adoptionMeasure: 'papers',
+  characteristicSelections: {},
   appliedFilters: { motifs: null, devices: null, papers: null },
   edgeTypes: { motifs: null, devices: null, papers: null },
   selected: { motifs: null, devices: null, papers: null },
@@ -170,17 +174,18 @@ function toolbarMarkup(graph = baseGraph()) {
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       `}
     <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
-    <div class="network-toolbar">
+    ${state.view === 'motifs' ? `<div class="center-view-switch" aria-label="Motif visualization"><button type="button" data-center-view="network" class="${state.motifCenterView === 'network' ? 'active' : ''}">Network</button><button type="button" data-center-view="adoption" class="${state.motifCenterView === 'adoption' ? 'active' : ''}">Adoption</button></div>` : ''}
+    ${state.view !== 'motifs' || state.motifCenterView === 'network' ? `<div class="network-toolbar">
       <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/><i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
       <div class="network-actions"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
-    </div>
+    </div>` : ''}
   </section>`
 }
 
 function resultCardMarkup(item) {
   const selected = state.selected[state.view] === item.id
   if (state.view === 'motifs') {
-    return `<button type="button" class="result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span>${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></button>`
+    return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, adoptionYears(state.atlas.corpus_papers_by_year))}</button>`
   }
   if (state.view === 'devices') {
     return `<button type="button" class="result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-kicker">${item.year || 'Year unknown'}${item.maturity ? ` · ${escapeHtml(displayLabel(item.maturity))}` : ''}</span><strong>${escapeHtml(item.label)}</strong><span>${item.motif_ids.length} motifs · ${escapeHtml(item.paper_title)}</span></button>`
@@ -210,6 +215,27 @@ function networkPanelMarkup() {
   </section>`
 }
 
+function adoptionPanelMarkup() {
+  const candidates = activeItems()
+  const corpus = state.atlas.corpus_papers_by_year || {}
+  const groups = motifTimelineGroups(candidates, corpus, state.atlas.timeline_policy)
+  const measureLabel = state.adoptionMeasure === 'share' ? 'Share of corpus papers each year' : 'Papers per year'
+  return `<section class="adoption-panel" aria-label="Motif adoption timelines">
+    <div class="adoption-panel-header"><div><h2>Motif adoption</h2><span>${escapeHtml(measureLabel)}</span></div><div class="measure-switch" aria-label="Timeline measure"><button type="button" data-adoption-measure="papers" class="${state.adoptionMeasure === 'papers' ? 'active' : ''}">Absolute</button><button type="button" data-adoption-measure="share" class="${state.adoptionMeasure === 'share' ? 'active' : ''}">Relative</button></div></div>
+    <div class="adoption-panel-body">
+      ${adoptionTimelineChartMarkup({ title: 'Top 10 overall', nodes: groups.overall, years: groups.years, corpusPapersByYear: corpus, measure: state.adoptionMeasure, selectedId: state.selected.motifs })}
+      ${adoptionTimelineChartMarkup({ title: `Emerging since ${groups.recentStart || '—'}`, nodes: groups.emerging, years: groups.years, corpusPapersByYear: corpus, measure: state.adoptionMeasure, selectedId: state.selected.motifs })}
+      <p class="adoption-definition">Emerging motifs exclude the overall top 10 and appeared in less than 1% of papers before ${groups.recentStart || 'the recent period'}.</p>
+    </div>
+  </section>`
+}
+
+function centerPanelMarkup() {
+  return state.view === 'motifs' && state.motifCenterView === 'adoption'
+    ? adoptionPanelMarkup()
+    : networkPanelMarkup()
+}
+
 function statGrid(items) {
   return `<div class="stat-grid">${items.filter(([, value]) => value !== '' && value !== null && value !== undefined).map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>`
 }
@@ -217,6 +243,23 @@ function statGrid(items) {
 function motifChips(ids, limit = 14) {
   const unique = [...new Set(ids)].slice(0, limit)
   return `<div class="chip-list">${unique.map((id) => `<button type="button" data-open-view="motifs" data-open-id="${id}">${escapeHtml(motifLabel(id))}</button>`).join('')}${ids.length > limit ? `<span>+${ids.length - limit}</span>` : ''}</div>`
+}
+
+function motifAdoptionDetailMarkup(node) {
+  return `<section class="detail-section motif-adoption-detail"><div class="detail-section-heading"><h3>Adoption over time</h3><div class="mini-switch" aria-label="Adoption measure"><button type="button" data-adoption-measure="papers" class="${state.adoptionMeasure === 'papers' ? 'active' : ''}">Papers</button><button type="button" data-adoption-measure="share" class="${state.adoptionMeasure === 'share' ? 'active' : ''}">Share</button></div></div>${detailAdoptionChartMarkup(node, state.atlas.corpus_papers_by_year || {}, state.adoptionMeasure)}</section>`
+}
+
+function motifCharacteristicDetailMarkup(node) {
+  const trends = motifCharacteristicTrends(node.id, state.engineering, state.atlas.nodes)
+  if (!trends.series.length) return ''
+  const requested = state.characteristicSelections[node.id]
+  const selected = trends.series.find((series) => series.key === requested) || trends.series[0]
+  state.characteristicSelections[node.id] = selected.key
+  return `<section class="detail-section characteristic-trends"><div class="detail-section-heading"><h3>Characteristic trends</h3><span>${formatCount(trends.deviceCount)} devices</span></div>
+    <label class="characteristic-picker"><span>Characteristic</span><select id="motif-characteristic">${trends.series.map((series) => `<option value="${escapeHtml(series.key)}" ${series.key === selected.key ? 'selected' : ''}>${escapeHtml(displayLabel(series.displayMetric))} (${escapeHtml(series.unit)}) · ${formatCount(series.observationCount)}</option>`).join('')}</select></label>
+    <div class="characteristic-chart-heading"><strong>${escapeHtml(displayLabel(selected.displayMetric))}</strong><span>${formatCount(selected.observationCount)} observations · ${formatCount(selected.deviceCount)} devices · ${escapeHtml(selected.unit)}</span></div>
+    ${characteristicScatterMarkup(selected, adoptionYears(state.atlas.corpus_papers_by_year))}
+  </section>`
 }
 
 function motifDetailMarkup(node) {
@@ -230,6 +273,8 @@ function motifDetailMarkup(node) {
     .map((edge) => edge.source === node.id ? edge.target : edge.source)
   return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>
     ${statGrid([['Papers', formatCount(node.paper_count)], ['Components', formatCount(node.component_count)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ['Implementations', formatCount(implementations.length)]])}
+    ${motifAdoptionDetailMarkup(node)}
+    ${motifCharacteristicDetailMarkup(node)}
     ${related.length ? `<section class="detail-section"><h3>Related motifs</h3>${motifChips(related, 8)}</section>` : ''}
     ${recentDevices.length ? `<section class="detail-section"><h3>Recent devices</h3><div class="compact-list">${recentDevices.map((device) => `<button type="button" data-open-view="devices" data-open-id="${device.id}"><strong>${escapeHtml(device.label)}</strong><span>${device.year} · ${escapeHtml(device.paper_title)}</span></button>`).join('')}</div></section>` : ''}
   </article>`
@@ -333,14 +378,16 @@ function renderApp() {
   const items = activeItems()
   const base = baseGraph()
   const graph = { ...base, edges: filterEdgesByCategory(base.edges, state.edgeTypes[state.view]) }
-  app.innerHTML = `${headerMarkup()}${toolbarMarkup(base)}<main class="workspace">${resultsMarkup(items)}${networkPanelMarkup()}${detailPanelMarkup(graph)}</main>`
+  app.innerHTML = `${headerMarkup()}${toolbarMarkup(base)}<main class="workspace">${resultsMarkup(items)}${centerPanelMarkup()}${detailPanelMarkup(graph)}</main>`
   bindUiEvents()
-  const expectedVersion = renderVersion + 1
-  void renderNetwork(graph).catch((error) => {
-    if (renderVersion !== expectedVersion) return
-    const host = document.querySelector('#network')
-    if (host) host.innerHTML = `<div class="network-loading">Could not render network: ${escapeHtml(error.message)}</div>`
-  })
+  if (state.view !== 'motifs' || state.motifCenterView === 'network') {
+    const expectedVersion = renderVersion + 1
+    void renderNetwork(graph).catch((error) => {
+      if (renderVersion !== expectedVersion) return
+      const host = document.querySelector('#network')
+      if (host) host.innerHTML = `<div class="network-loading">Could not render network: ${escapeHtml(error.message)}</div>`
+    })
+  }
   updateUrl()
 }
 
@@ -359,7 +406,10 @@ function updateFilterActions() {
 function updateLiveFiltering() {
   const panel = document.querySelector('.results-panel')
   if (panel) panel.outerHTML = resultsMarkup(activeItems())
+  const adoptionPanel = document.querySelector('.adoption-panel')
+  if (adoptionPanel) adoptionPanel.outerHTML = adoptionPanelMarkup()
   bindResultEvents()
+  bindTrendEvents(document.querySelector('.adoption-panel'))
   updateFilterActions()
   applyLiveHighlights()
   updateUrl()
@@ -385,6 +435,10 @@ function bindUiEvents() {
   document.querySelector('#motif-level')?.addEventListener('change', (event) => { state.motifLevel = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#minimum-shared')?.addEventListener('change', (event) => { state.minShared = Number(event.target.value); renderApp() })
+  document.querySelectorAll('[data-center-view]').forEach((button) => button.addEventListener('click', () => {
+    state.motifCenterView = button.dataset.centerView
+    renderApp()
+  }))
   document.querySelector('#apply-network-filter')?.addEventListener('click', () => {
     state.appliedFilters[state.view] = normalizedFilterSnapshot()
     state.selectedEdge = null
@@ -421,6 +475,7 @@ function bindUiEvents() {
   })
   bindResultEvents()
   bindDetailLinks()
+  bindTrendEvents()
 }
 
 function bindDetailLinks() {
@@ -434,13 +489,38 @@ function bindDetailLinks() {
   }))
 }
 
+function refreshDetail() {
+  const detail = document.querySelector('#detail-panel')
+  if (detail) detail.innerHTML = detailMarkup(networkRuntime?.graph || currentGraph())
+  bindDetailLinks()
+  bindTrendEvents(detail)
+}
+
+function bindTrendEvents(root = document) {
+  if (!root) return
+  root.querySelectorAll('[data-adoption-id]').forEach((element) => element.addEventListener('click', () => {
+    selectItem(element.dataset.adoptionId, false)
+  }))
+  root.querySelectorAll('[data-adoption-measure]').forEach((button) => button.addEventListener('click', () => {
+    if (state.adoptionMeasure === button.dataset.adoptionMeasure) return
+    state.adoptionMeasure = button.dataset.adoptionMeasure
+    if (state.view === 'motifs' && state.motifCenterView === 'adoption') renderApp()
+    else refreshDetail()
+  }))
+  root.querySelector('#motif-characteristic')?.addEventListener('change', (event) => {
+    const motifId = state.selected.motifs
+    if (!motifId) return
+    state.characteristicSelections[motifId] = event.target.value
+    refreshDetail()
+  })
+}
+
 function selectItem(id, syncNetwork = false) {
   state.selected[state.view] = id
   state.selectedEdge = null
   document.querySelectorAll('[data-result-id]').forEach((button) => button.classList.toggle('selected', button.dataset.resultId === id))
-  const detail = document.querySelector('#detail-panel')
-  if (detail) detail.innerHTML = detailMarkup(networkRuntime?.graph || currentGraph())
-  bindDetailLinks()
+  document.querySelectorAll('[data-adoption-id]').forEach((element) => element.classList.toggle('selected', element.dataset.adoptionId === id))
+  refreshDetail()
   if (syncNetwork) syncNetworkSelection('node', id)
   updateUrl()
 }
