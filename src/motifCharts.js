@@ -1,4 +1,5 @@
 import { motifAdoptionSeries } from './motifTrends.js'
+import { scaleLinear, scaleLog } from 'd3-scale'
 
 export const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
@@ -114,29 +115,52 @@ export function characteristicScatterMarkup(series, years = []) {
   const firstYear = years[0] ?? Math.min(...observedYears)
   const lastYear = years.at(-1) ?? Math.max(...observedYears)
   const allValues = series.observations.flatMap((item) => [item.bounds.minimum, item.bounds.maximum]).filter(Number.isFinite)
-  let minimum = Math.min(...allValues)
-  let maximum = Math.max(...allValues)
-  const positive = minimum > 0
-  const logScale = positive && maximum / minimum >= 1000
-  if (minimum === maximum) {
-    const padding = Math.abs(minimum || 1) * .1
-    minimum -= padding
-    maximum += padding
-  } else if (!logScale) {
-    const padding = (maximum - minimum) * .08
-    minimum -= padding
-    maximum += padding
-  }
-  const scaled = (value) => logScale ? Math.log10(value) : value
-  const scaledMin = scaled(minimum)
-  const scaledMax = scaled(maximum)
+  const minimum = Math.min(...allValues)
+  const maximum = Math.max(...allValues)
+  const nonNegative = minimum >= 0
+  const positiveValues = allValues.filter((value) => value > 0)
+  const minimumPositive = Math.min(...positiveValues)
+  const hasZero = nonNegative && allValues.some((value) => value === 0)
+  const logScale = nonNegative && positiveValues.length > 0 && maximum / minimumPositive >= 1000
   const x = (year) => margin.left + (year - firstYear) * plotWidth / Math.max(1, lastYear - firstYear)
-  const y = (value) => margin.top + plotHeight - (scaled(value) - scaledMin) * plotHeight / Math.max(Number.EPSILON, scaledMax - scaledMin)
   const xTicks = [firstYear, Math.round((firstYear + lastYear) / 2), lastYear]
-  const yTicks = logScale
-    ? [minimum, Math.sqrt(minimum * maximum), maximum]
-    : [minimum, (minimum + maximum) / 2, maximum]
-  return `<svg class="characteristic-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(series.displayMetric)} over time in ${escapeHtml(series.unit)}">
+  let y
+  let yTicks
+  if (logScale) {
+    const zeroBaseline = margin.top + plotHeight
+    const positiveBaseline = zeroBaseline - (hasZero ? 18 : 0)
+    const logarithmic = scaleLog()
+      .domain([minimumPositive, maximum])
+      .range([positiveBaseline, margin.top])
+    const logarithmicTicks = logarithmic.ticks(5)
+      .filter((value) => value >= minimumPositive && value <= maximum)
+    if (!logarithmicTicks.length) logarithmicTicks.push(minimumPositive, maximum)
+    const lastTick = logarithmicTicks.at(-1)
+    if (lastTick < maximum && maximum / lastTick >= 2) logarithmicTicks.push(maximum)
+    y = (value) => value === 0 && hasZero ? zeroBaseline : logarithmic(Math.max(value, minimumPositive))
+    yTicks = hasZero ? [0, ...logarithmicTicks] : logarithmicTicks
+  } else {
+    let domainMinimum = minimum
+    let domainMaximum = maximum
+    if (domainMinimum === domainMaximum) {
+      const padding = Math.abs(domainMinimum || 1) * .1
+      domainMinimum -= padding
+      domainMaximum += padding
+    } else {
+      const padding = (domainMaximum - domainMinimum) * .08
+      domainMinimum -= padding
+      domainMaximum += padding
+    }
+    if (nonNegative) domainMinimum = Math.max(0, domainMinimum)
+    const linear = scaleLinear()
+      .domain([domainMinimum, domainMaximum])
+      .nice(3)
+      .range([margin.top + plotHeight, margin.top])
+    y = linear
+    yTicks = linear.ticks(3)
+  }
+  const scaleDescription = logScale ? `, logarithmic scale${hasZero ? ' with reported zero baseline' : ''}` : ''
+  return `<svg class="characteristic-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(series.displayMetric)} over time in ${escapeHtml(series.unit)}${scaleDescription}">
     ${yTicks.map((value) => `<line class="chart-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}"/><text class="chart-axis" x="${margin.left - 7}" y="${y(value) + 4}" text-anchor="end">${escapeHtml(formatAxis(value))}</text>`).join('')}
     ${xTicks.map((year) => `<text class="chart-axis" x="${x(year)}" y="${height - 9}" text-anchor="middle">${year}</text>`).join('')}
     ${series.observations.map((item) => {
@@ -147,6 +171,6 @@ export function characteristicScatterMarkup(series, years = []) {
         : ''
       return `${whisker}<circle class="scatter-point" cx="${cx}" cy="${cy}" r="3.5"><title>${item.year}: ${formatAxis(item.bounds.point)} ${escapeHtml(series.unit)}</title></circle>`
     }).join('')}
-    ${logScale ? `<text class="chart-note" x="${width - margin.right}" y="${margin.top + 8}" text-anchor="end">log scale</text>` : ''}
+    ${logScale ? `<text class="chart-note" x="${width - margin.right}" y="${margin.top + 8}" text-anchor="end">log scale${hasZero ? ' · reported zero retained' : ''}</text>` : ''}
   </svg>`
 }
