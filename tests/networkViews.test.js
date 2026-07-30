@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { projectedEntityNetwork, similarityEdges } from '../src/networkViews.js'
+import { networkNodeSizeScore, projectedEntityNetwork, similarityEdges } from '../src/networkViews.js'
 
 const motifs = [
   { id: 'L1-A', label: 'Family A', level: 'L1' },
@@ -46,6 +46,13 @@ test('similarity projection retains shared motif evidence and bounds neighbors',
   assert.equal(edges.length, 1)
   assert.deepEqual(edges[0].shared_motif_ids, ['x', 'y'])
   assert.equal(edges[0].weight, 2)
+})
+
+test('paper and device node radii use compressed visible degree', () => {
+  assert.equal(networkNodeSizeScore('devices', {}, 0), 0)
+  assert.equal(networkNodeSizeScore('devices', {}, 4), 2)
+  assert.equal(networkNodeSizeScore('papers', {}, 25), 5)
+  assert.ok(networkNodeSizeScore('motifs', { paper_count: 20 }, 4) > Math.sqrt(4))
 })
 
 test('device view excludes L1 organizing families from similarity', () => {
