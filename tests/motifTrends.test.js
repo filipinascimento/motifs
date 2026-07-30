@@ -30,7 +30,7 @@ test('emerging motifs exclude overall leaders and require negligible prior share
   assert.equal(groups.recentStart, 2022)
 })
 
-test('characteristic trends enforce device and observation thresholds and unit compatibility', () => {
+test('characteristic trends merge category partitions while preserving unit compatibility', () => {
   const nodes = [{ id: 'M', parent_ids: [] }]
   const implementations = Array.from({ length: 11 }, (_, index) => ({
     implementation_id: `I${index}`,
@@ -43,7 +43,7 @@ test('characteristic trends enforce device and observation thresholds and unit c
       implementation_id: `I${index}`,
       device_id: `D${index}`,
       year: 2010 + index,
-      category: 'geometry',
+      category: index < 6 ? 'geometry' : 'fabrication',
       metric: 'thickness',
       normalized_value: index + 1,
       normalized_unit: 'cm',
@@ -66,4 +66,7 @@ test('characteristic trends enforce device and observation thresholds and unit c
   assert.equal(result.series.length, 1)
   assert.equal(result.series[0].unit, 'cm')
   assert.equal(result.series[0].observationCount, 11)
+  assert.equal(result.series[0].category, 'combined')
+  assert.deepEqual(result.series[0].categories, ['fabrication', 'geometry'])
+  assert.deepEqual(result.series[0].categoryCounts, { geometry: 6, fabrication: 5 })
 })
