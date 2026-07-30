@@ -32,6 +32,16 @@ export function familyForMotif(node) {
   return node?.level === 'L1' ? node.id : node?.family_ids?.[0] || 'unassigned'
 }
 
+export function edgeCategory(edge = {}) {
+  return edge.group || edge.type || 'link'
+}
+
+export function filterEdgesByCategory(edges = [], selectedCategories = null) {
+  if (selectedCategories === null || selectedCategories === undefined) return asArray(edges)
+  const selected = new Set(asArray(selectedCategories))
+  return asArray(edges).filter((edge) => selected.has(edgeCategory(edge)))
+}
+
 export function motifResults(nodes = [], filters = {}) {
   return asArray(nodes)
     .filter((node) => !filters.level || filters.level === 'all' || node.level === filters.level)

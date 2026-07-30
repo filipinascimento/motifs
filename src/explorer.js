@@ -8,7 +8,9 @@ import {
   componentsForDevice,
   deviceCatalog,
   deviceResults,
+  edgeCategory,
   familyForMotif,
+  filterEdgesByCategory,
   measurementsForDevice,
   motifResults,
   paperCatalog,
@@ -16,6 +18,13 @@ import {
 } from './explorerData.js'
 
 const CATEGORY10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+const EDGE_COLORS = {
+  lifecycle: '#1f77b4',
+  parent_of: '#ff7f0e',
+  similarity: '#2ca02c',
+  used_with: '#9467bd',
+  shared_motifs: '#17becf',
+}
 const VIEWS = {
   motifs: { label: 'Motifs', singular: 'motif', placeholder: 'Search motif name, function, or alias…' },
   devices: { label: 'Devices', singular: 'device', placeholder: 'Search device, application, material, or motif…' },
@@ -34,8 +43,9 @@ const state = {
   resultLimit: 40,
   networkNodeLimit: 250,
   minShared: 2,
-  networkMode: '2d',
+  networkMode: '3d',
   showLabels: false,
+  edgeTypes: { motifs: null, devices: null, papers: null },
   selected: { motifs: null, devices: null, papers: null },
   selectedEdge: null,
 }
@@ -127,11 +137,20 @@ function headerMarkup() {
 
 function toolbarMarkup() {
   const families = state.atlas.nodes.filter((node) => node.level === 'L1')
+  const edgeTypes = availableEdgeTypes()
+  const selectedTypes = state.edgeTypes[state.view]
+  const selectedCount = selectedTypes === null
+    ? edgeTypes.length
+    : edgeTypes.filter((type) => selectedTypes.includes(type)).length
   return `<section class="toolbar">
     <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd>/</kbd></label>
     ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All levels</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       <label>Network size<select id="network-limit">${[100, 250, 500].map((value) => `<option value="${value}" ${state.networkNodeLimit === value ? 'selected' : ''}>${value} nodes</option>`).join('')}</select></label>`}
+    <div class="network-toolbar">
+      <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/><i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
+      <div class="network-actions"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
+    </div>
   </section>`
 }
 
@@ -163,7 +182,6 @@ function networkTitle() {
 
 function networkPanelMarkup() {
   return `<section class="network-panel" aria-label="${networkTitle()}">
-    <div class="network-heading"><div><span>${networkTitle()}</span><strong id="network-count"></strong></div><div class="network-actions"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div></div>
     <div id="network" class="network-host"><div class="network-loading">Loading network…</div></div>
   </section>`
 }
@@ -252,7 +270,7 @@ function detailPanelMarkup() {
   return `<aside id="detail-panel" class="detail-panel" aria-live="polite">${detailMarkup()}</aside>`
 }
 
-function currentGraph() {
+function baseGraph() {
   if (state.view === 'motifs') {
     let nodes = motifResults(state.atlas.nodes, { query: state.query, level: state.motifLevel, family: state.motifFamily })
     if (!state.query && state.motifLevel === 'all' && state.motifFamily === 'all') nodes = state.atlas.nodes
@@ -269,6 +287,15 @@ function currentGraph() {
     minShared: state.minShared,
     topK: 8,
   })
+}
+
+function availableEdgeTypes() {
+  return [...new Set(baseGraph().edges.map(edgeCategory))].sort()
+}
+
+function currentGraph() {
+  const graph = baseGraph()
+  return { ...graph, edges: filterEdgesByCategory(graph.edges, state.edgeTypes[state.view]) }
 }
 
 function renderApp() {
@@ -305,6 +332,20 @@ function bindUiEvents() {
   document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; renderApp() })
   document.querySelector('#minimum-shared')?.addEventListener('change', (event) => { state.minShared = Number(event.target.value); renderApp() })
   document.querySelector('#network-limit')?.addEventListener('change', (event) => { state.networkNodeLimit = Number(event.target.value); renderApp() })
+  document.querySelectorAll('[data-edge-type]').forEach((input) => input.addEventListener('change', () => {
+    const available = availableEdgeTypes()
+    const selected = new Set(state.edgeTypes[state.view] === null ? available : state.edgeTypes[state.view])
+    if (input.checked) selected.add(input.dataset.edgeType)
+    else selected.delete(input.dataset.edgeType)
+    state.edgeTypes[state.view] = [...selected]
+    state.selectedEdge = null
+    renderApp()
+  }))
+  document.querySelectorAll('[data-edge-filter-action]').forEach((button) => button.addEventListener('click', () => {
+    state.edgeTypes[state.view] = button.dataset.edgeFilterAction === 'all' ? null : []
+    state.selectedEdge = null
+    renderApp()
+  }))
   document.querySelectorAll('[data-result-id]').forEach((button) => button.addEventListener('click', () => selectItem(button.dataset.resultId, true)))
   document.querySelector('#load-more')?.addEventListener('click', () => { state.resultLimit += 40; renderApp() })
   bindDetailLinks()
@@ -376,7 +417,6 @@ async function renderNetwork() {
   const version = ++renderVersion
   const graph = currentGraph()
   const { nodes, edges } = graph
-  document.querySelector('#network-count').textContent = `${formatCount(nodes.length)} nodes · ${formatCount(edges.length)} links`
   if (!nodes.length) { host.innerHTML = '<div class="network-loading">No matching network nodes.</div>'; return }
   let network
   try { network = await HeliosNetwork.create({ directed: false }) } catch (error) {
@@ -395,14 +435,14 @@ async function renderNetwork() {
   validEdges.forEach((edge) => { degree.set(edge.source, degree.get(edge.source) + 1); degree.set(edge.target, degree.get(edge.target) + 1) })
   const categories = [...new Set(nodes.map(categoryForNode))].sort()
   const categoryIndex = new Map(categories.map((category, index) => [category, index]))
-  const edgeTypes = [...new Set(validEdges.map((edge) => edge.group || edge.type || 'link'))].sort()
+  const edgeTypes = [...new Set(validEdges.map(edgeCategory))].sort()
   const edgeTypeIndex = new Map(edgeTypes.map((type, index) => [type, index]))
   const scores = nodes.map((node) => Math.log1p(Number(node.paper_count || node.score || 1)) + .5 * Math.log1p(degree.get(node.id) || 0))
   network
     .nodeAttribute('label', (_current, _id, ordinal) => nodes[ordinal].label)
     .nodeAttribute('category', (_current, _id, ordinal) => categoryIndex.get(categoryForNode(nodes[ordinal])) || 0, { type: AttributeType.Category })
     .nodeAttribute('score', (_current, _id, ordinal) => scores[ordinal], { type: AttributeType.Float })
-    .edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(validEdges[ordinal].group || validEdges[ordinal].type || 'link') || 0, { type: AttributeType.Category })
+    .edgeAttribute('category', (_current, _id, ordinal) => edgeTypeIndex.get(edgeCategory(validEdges[ordinal])) || 0, { type: AttributeType.Category })
   network.setNodeAttributeCategoryDictionary('category', categories.map((category, id) => ({ id, label: displayLabel(category) })), { remapExisting: false })
   network.setEdgeAttributeCategoryDictionary('category', edgeTypes.map((type, id) => ({ id, label: displayLabel(type) })), { remapExisting: false })
   host.innerHTML = '<div id="network-stage" class="network-stage"></div>'
@@ -425,8 +465,12 @@ async function renderNetwork() {
   if (version !== renderVersion) { helios.destroy(); return }
   const mapper = helios.behavior.mappers
   mapper.setChannelConfig('node', 'color', { type: 'categorical', attributes: 'category', domain: categories.map((_, index) => index), range: categories.map((_, index) => `${CATEGORY10[index % CATEGORY10.length]}ff`) })
-  mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [3.5, 11] })
-  mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map(() => '#9aa7a1b0') })
+  mapper.setChannelConfig('node', 'size', { type: 'linear', attributes: 'score', domain: [0, Math.max(...scores, 1)], range: [5, 14] })
+  mapper.setChannelConfig('node', 'outline', { type: 'constant', value: .15 })
+  if (edgeTypes.length) mapper.setChannelConfig('edge', 'color', { type: 'categorical', attributes: 'category', domain: edgeTypes.map((_, index) => index), range: edgeTypes.map((type, index) => `${EDGE_COLORS[type] || CATEGORY10[index % CATEGORY10.length]}c8`) })
+  helios.nodeOutlineWidthScale(5)
+  helios.nodeOutlineWidthBase(.15)
+  helios.nodeOutlineColor('#ffffff80')
   helios.behavior.labels.enabled(state.showLabels)
   helios.on(EVENTS.NODE_CLICK, (event) => {
     const id = nodeId.get(Number(event.detail?.index))
