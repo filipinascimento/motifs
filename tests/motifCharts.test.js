@@ -69,6 +69,7 @@ test('characteristic plots use logarithmic ticks while retaining a reported zero
   assert.doesNotMatch(markup, />-\d/u)
   assert.match(markup, /class="chart-axis-domain"/u)
   assert.match(markup, /class="chart-axis-tick"/u)
+  assert.match(markup, /class="chart-axis-minor-tick"/u)
 })
 
 test('logarithmic characteristic axes use a niced D3 domain without raw endpoint grid lines', () => {
@@ -84,6 +85,7 @@ test('logarithmic characteristic axes use a niced D3 domain without raw endpoint
   assert.match(markup, />10²<\/text>/u)
   assert.match(markup, />10⁻⁶<\/text>/u)
   assert.doesNotMatch(markup, />13<\/text>/u)
+  assert.ok((markup.match(/class="chart-axis-minor-tick"/gu) || []).length > 10)
 })
 
 test('characteristic plots retain a linear axis for narrow ranges', () => {
@@ -98,4 +100,5 @@ test('characteristic plots retain a linear axis for narrow ranges', () => {
 
   assert.doesNotMatch(markup, /log scale/u)
   assert.doesNotMatch(markup, /logarithmic scale/u)
+  assert.doesNotMatch(markup, /chart-axis-minor-tick/u)
 })

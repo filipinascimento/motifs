@@ -121,7 +121,7 @@ export function characteristicScatterMarkup(series, years = []) {
   if (!series?.observations?.length) return ''
   const width = 340
   const height = 210
-  const margin = { left: 48, right: 10, top: 12, bottom: 31 }
+  const margin = { left: 56, right: 10, top: 12, bottom: 31 }
   const plotWidth = width - margin.left - margin.right
   const plotHeight = height - margin.top - margin.bottom
   const observedYears = series.observations.map((item) => Number(item.year))
@@ -139,6 +139,7 @@ export function characteristicScatterMarkup(series, years = []) {
   const xTicks = [firstYear, Math.round((firstYear + lastYear) / 2), lastYear]
   let y
   let yTicks
+  let yMinorTicks = []
   if (logScale) {
     const zeroBaseline = margin.top + plotHeight
     const positiveBaseline = zeroBaseline - (hasZero ? 18 : 0)
@@ -147,6 +148,9 @@ export function characteristicScatterMarkup(series, years = []) {
       .nice()
       .range([positiveBaseline, margin.top])
     const logarithmicTicks = logarithmic.ticks(5)
+    const majorTickValues = new Set(logarithmicTicks)
+    yMinorTicks = logarithmic.ticks(Math.max(20, Math.floor(plotHeight / 4)))
+      .filter((value) => !majorTickValues.has(value))
     y = (value) => value === 0 && hasZero ? zeroBaseline : logarithmic(Math.max(value, minimumPositive))
     yTicks = hasZero ? [0, ...logarithmicTicks] : logarithmicTicks
   } else {
@@ -171,6 +175,7 @@ export function characteristicScatterMarkup(series, years = []) {
   }
   const scaleDescription = logScale ? `, logarithmic scale${hasZero ? ' with reported zero baseline' : ''}` : ''
   return `<svg class="characteristic-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(series.displayMetric)} over time in ${escapeHtml(series.unit)}${scaleDescription}">
+    ${yMinorTicks.map((value) => `<line class="chart-axis-minor-tick" x1="${margin.left - 3}" x2="${margin.left}" y1="${y(value)}" y2="${y(value)}"/>`).join('')}
     ${yTicks.map((value) => `<line class="chart-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}"/><line class="chart-axis-tick" x1="${margin.left - 4}" x2="${margin.left}" y1="${y(value)}" y2="${y(value)}"/><text class="chart-axis" x="${margin.left - 7}" y="${y(value) + 4}" text-anchor="end">${escapeHtml(logScale ? formatLogAxis(value) : formatAxis(value))}</text>`).join('')}
     <line class="chart-axis-domain" x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${margin.top + plotHeight}"/><line class="chart-axis-domain" x1="${margin.left}" x2="${width - margin.right}" y1="${margin.top + plotHeight}" y2="${margin.top + plotHeight}"/>
     ${xTicks.map((year) => `<line class="chart-axis-tick" x1="${x(year)}" x2="${x(year)}" y1="${margin.top + plotHeight}" y2="${margin.top + plotHeight + 4}"/><text class="chart-axis" x="${x(year)}" y="${height - 9}" text-anchor="middle">${year}</text>`).join('')}
