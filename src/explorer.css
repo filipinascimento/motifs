@@ -664,6 +664,13 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.chart-axis-domain,
+.chart-axis-tick {
+  stroke: #aeb9b4;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
 .adoption-line {
   fill: none;
   stroke: var(--series-color);
