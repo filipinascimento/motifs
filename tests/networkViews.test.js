@@ -85,6 +85,10 @@ test('selected device is promoted into a bounded network', () => {
   assert.equal(graph.nodes.length, 20)
   assert.equal(graph.nodes[0].id, 'DX1')
   assert.ok(graph.nodes.some((node) => node.id === 'DX1'))
+  const unlimited = projectedEntityNetwork({ indexes: { devices, papers } }, motifs, {
+    view: 'device', maxNodes: Number.POSITIVE_INFINITY, minShared: 1,
+  })
+  assert.equal(unlimited.nodes.length, 25)
 })
 
 test('mixed view emits only direct paper-device and device-motif links', () => {
