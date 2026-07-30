@@ -184,7 +184,7 @@ function toolbarMarkup(graph = baseGraph()) {
 function resultCardMarkup(item) {
   const selected = state.selected[state.view] === item.id
   if (state.view === 'motifs') {
-    return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, adoptionYears(state.atlas.corpus_papers_by_year))}</button>`
+    return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, state.atlas.corpus_papers_by_year || {})}</button>`
   }
   if (state.view === 'devices') {
     return `<button type="button" class="result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-kicker">${item.year || 'Year unknown'}${item.maturity ? ` · ${escapeHtml(displayLabel(item.maturity))}` : ''}</span><strong>${escapeHtml(item.label)}</strong><span>${item.motif_ids.length} motifs · ${escapeHtml(item.paper_title)}</span></button>`
