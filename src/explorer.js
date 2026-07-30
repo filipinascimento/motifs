@@ -177,7 +177,6 @@ function toolbarMarkup(graph = baseGraph()) {
     ${state.view === 'motifs' ? `<div class="center-view-switch" aria-label="Motif visualization"><button type="button" data-center-view="network" class="${state.motifCenterView === 'network' ? 'active' : ''}">Network</button><button type="button" data-center-view="adoption" class="${state.motifCenterView === 'adoption' ? 'active' : ''}">Adoption</button></div>` : ''}
     ${state.view !== 'motifs' || state.motifCenterView === 'network' ? `<div class="network-toolbar">
       <details class="edge-filter"><summary>Edges ${selectedCount}/${edgeTypes.length}</summary><div class="edge-filter-menu"><div class="edge-filter-heading"><strong>Edge types</strong><span><button type="button" data-edge-filter-action="all">All</button><button type="button" data-edge-filter-action="none">None</button></span></div>${edgeTypes.map((type) => `<label><input type="checkbox" data-edge-type="${escapeHtml(type)}" ${selectedTypes === null || selectedTypes.includes(type) ? 'checked' : ''}/><i style="--edge-color:${EDGE_COLORS[type] || CATEGORY10[edgeTypes.indexOf(type) % CATEGORY10.length]}"></i>${escapeHtml(displayLabel(type))}</label>`).join('')}</div></details>
-      <div class="network-actions"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
     </div>` : ''}
   </section>`
 }
@@ -211,7 +210,11 @@ function networkTitle() {
 function networkPanelMarkup() {
   return `<section class="network-panel" aria-label="${networkTitle()}">
     <div id="network" class="network-host"><div class="network-loading">Loading network…</div></div>
-    <div class="network-tuning"><label><span>Node size</span><input id="node-size-scale" type="range" min="0.5" max="2" step="0.1" value="${state.nodeSizeScale}"/><output>${state.nodeSizeScale.toFixed(1)}×</output></label><label><span>Edge opacity</span><input id="edge-opacity" type="range" min="0.05" max="1" step="0.05" value="${state.edgeOpacity}"/><output>${Math.round(state.edgeOpacity * 100)}%</output></label></div>
+    <div class="network-tuning">
+      <div class="network-actions network-footer-actions" aria-label="Network view controls"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
+      <label><span>Node size</span><input id="node-size-scale" type="range" min="0.5" max="2" step="0.1" value="${state.nodeSizeScale}"/><output>${state.nodeSizeScale.toFixed(1)}×</output></label>
+      <label><span>Edge opacity</span><input id="edge-opacity" type="range" min="0.05" max="1" step="0.05" value="${state.edgeOpacity}"/><output>${Math.round(state.edgeOpacity * 100)}%</output></label>
+    </div>
   </section>`
 }
 
