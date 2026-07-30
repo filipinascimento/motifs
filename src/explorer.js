@@ -4,6 +4,7 @@ import { EVENTS, Helios } from 'helios-web'
 import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './engineering.js'
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
 import { projectedEntityNetwork, sharedMotifLabels } from './networkViews.js'
+import { switchNetworkMode } from './networkInteraction.js'
 import {
   componentsForDevice,
   deviceCatalog,
@@ -582,11 +583,16 @@ function bindNetworkActions(helios) {
     helios.behavior.labels.enabled(state.showLabels)
     event.currentTarget.textContent = state.showLabels ? 'Hide labels' : 'Show labels'
   })
-  document.querySelector('[data-network-action="mode"]')?.addEventListener('click', async (event) => {
-    state.networkMode = state.networkMode === '2d' ? '3d' : '2d'
-    await helios.setMode(state.networkMode)
-    helios.frameNetwork({ animate: true, durationMs: 350, paddingRatio: .05 })
-    event.currentTarget.textContent = state.networkMode.toUpperCase()
+  document.querySelector('[data-network-action="mode"]')?.addEventListener('click', (event) => {
+    const button = event.currentTarget
+    void switchNetworkMode({
+      helios,
+      button,
+      currentMode: state.networkMode,
+      onModeChange: (mode) => { state.networkMode = mode },
+      isCurrent: () => networkRuntime?.helios === helios,
+      onError: (error) => { button.title = `Could not switch mode: ${error.message}` },
+    })
   })
 }
 
