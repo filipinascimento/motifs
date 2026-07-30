@@ -31,6 +31,17 @@ function sharedSet(left, right) {
 }
 
 /**
+ * Compress degree into a node-radius score for entity projections.
+ * A square-root radius keeps hubs visible without letting them dominate the
+ * canvas; motif sizing retains its existing evidence + degree encoding.
+ */
+export function networkNodeSizeScore(view, node = {}, connectionCount = 0) {
+  const degree = Math.max(0, Number(connectionCount) || 0)
+  if (view === 'devices' || view === 'papers') return Math.sqrt(degree)
+  return Math.log1p(Number(node.paper_count || node.score || 1)) + 0.5 * Math.log1p(degree)
+}
+
+/**
  * Build a sparse, symmetric similarity projection. Candidate pairs are found
  * through an inverted motif index and then limited to each node's strongest
  * neighbors. This avoids the dense all-pairs graph that common motifs create.

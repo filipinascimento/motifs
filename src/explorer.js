@@ -3,7 +3,7 @@ import HeliosNetwork, { AttributeType } from 'helios-network'
 import { EVENTS, Helios } from 'helios-web'
 import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './engineering.js'
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
-import { projectedEntityNetwork, sharedMotifLabels } from './networkViews.js'
+import { networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels } from './networkViews.js'
 import { switchNetworkMode } from './networkInteraction.js'
 import { adoptionTimelineChartMarkup, CATEGORY10, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from './motifCharts.js'
 import { adoptionYears, motifCharacteristicTrends, motifTimelineGroups } from './motifTrends.js'
@@ -651,7 +651,7 @@ async function renderNetwork(graph = currentGraph()) {
   const categoryIndex = new Map(categories.map((category, index) => [category, index]))
   const edgeTypes = [...new Set(validEdges.map(edgeCategory))].sort()
   const edgeTypeIndex = new Map(edgeTypes.map((type, index) => [type, index]))
-  const scores = nodes.map((node) => Math.log1p(Number(node.paper_count || node.score || 1)) + .5 * Math.log1p(degree.get(node.id) || 0))
+  const scores = nodes.map((node) => networkNodeSizeScore(state.view, node, degree.get(node.id) || 0))
   network
     .nodeAttribute('label', (_current, _id, ordinal) => nodes[ordinal].label)
     .nodeAttribute('category', (_current, _id, ordinal) => categoryIndex.get(categoryForNode(nodes[ordinal])) || 0, { type: AttributeType.Category })
