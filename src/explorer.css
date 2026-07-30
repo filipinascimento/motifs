@@ -552,6 +552,16 @@ a:focus-visible {
   background: #f7f9f8;
 }
 
+/* Keep graph gestures and plot clicks from producing browser text selections. */
+.network-host,
+.motif-sparkline,
+.adoption-chart-card,
+.detail-adoption-chart,
+.characteristic-scatter {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .network-tuning {
   position: relative;
   z-index: 2;
