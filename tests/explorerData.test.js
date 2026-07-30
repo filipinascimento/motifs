@@ -4,7 +4,9 @@ import {
   componentsForDevice,
   deviceCatalog,
   deviceResults,
+  edgeCategory,
   familyForMotif,
+  filterEdgesByCategory,
   measurementsForDevice,
   motifResults,
   paperCatalog,
@@ -66,4 +68,16 @@ test('device details resolve only the selected device measurements and component
   assert.deepEqual(measurementsForDevice(characteristics, 'd1').map((row) => row.observation_id), ['m1'])
   assert.deepEqual(componentsForDevice(characteristics, 'd1').map((row) => row.component_id), ['c1'])
   assert.deepEqual(measurementsForDevice(characteristics, 'd2'), [])
+})
+
+test('network edges can be filtered by their visible relationship category', () => {
+  const edges = [
+    { id: 'e1', group: 'parent_of', type: 'parent_of' },
+    { id: 'e2', group: 'used_with', type: 'used_with' },
+    { id: 'e3', type: 'similarity' },
+  ]
+  assert.equal(edgeCategory(edges[2]), 'similarity')
+  assert.deepEqual(filterEdgesByCategory(edges, ['parent_of', 'similarity']).map((edge) => edge.id), ['e1', 'e3'])
+  assert.deepEqual(filterEdgesByCategory(edges, []), [])
+  assert.equal(filterEdgesByCategory(edges, null).length, 3)
 })
