@@ -5,6 +5,7 @@ import { fetchEngineeringBundle, engineeringBundleToCharacteristics } from './en
 import { implementationsForMotif, normalizedObservationDisplay, rawObservationDisplay } from './characteristics.js'
 import { continuousYearColorConfig, networkNodeSizeScore, projectedEntityNetwork, sharedMotifLabels, shouldMapCategoricalEdgeColors } from './networkViews.js'
 import { switchNetworkMode } from './networkInteraction.js'
+import { applyNetworkTopologyFilter, MIN_NETWORK_COMPONENT_SIZE } from './networkFilters.js'
 import { adoptionTimelineChartMarkup, CATEGORY10, characteristicScatterMarkup, detailAdoptionChartMarkup, motifSparklineMarkup } from './motifCharts.js'
 import { adoptionYears, motifCharacteristicTrends, motifTimelineGroups } from './motifTrends.js'
 import {
@@ -264,7 +265,7 @@ function networkPanelMarkup(graph = currentGraph()) {
     <div id="network" class="network-host"><div class="network-loading">Loading network…</div></div>
     <div class="network-tuning ${yearColor ? 'has-year-key' : ''}">
       ${yearColor ? `<div class="year-color-key" aria-label="Continuous publication year color scale"><span>${yearColor.domain[0]}</span><i></i><span>${yearColor.domain[1]}</span></div>` : ''}
-      <div class="network-actions network-footer-actions" aria-label="Network view controls"><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
+      <div class="network-actions network-footer-actions" aria-label="Network view controls"><span class="network-pruning-note">Components ≥${MIN_NETWORK_COMPONENT_SIZE} nodes</span><button type="button" data-network-action="fit">Fit</button><button type="button" data-network-action="labels">${state.showLabels ? 'Hide labels' : 'Show labels'}</button><button type="button" data-network-action="mode">${state.networkMode.toUpperCase()}</button></div>
       <label><span>Node size</span><input id="node-size-scale" type="range" min="0.5" max="2" step="0.1" value="${state.nodeSizeScale}"/><output>${state.nodeSizeScale.toFixed(1)}×</output></label>
       <label><span>Edge opacity</span><input id="edge-opacity" type="range" min="0.05" max="1" step="0.05" value="${state.edgeOpacity}"/><output>${Math.round(state.edgeOpacity * 100)}%</output></label>
     </div>
@@ -796,6 +797,7 @@ async function renderNetwork(graph = currentGraph()) {
     autoCleanup: false,
     disposeNetworkOnDestroy: true,
   })
+  applyNetworkTopologyFilter(helios)
   networkRuntime = { helios, network, graph: { ...graph, edges: validEdges }, nodeIndex, edgeIndex, highlightedNodes: new Set(), ready: false }
   try { await helios.ready } catch (error) {
     if (version === renderVersion) host.innerHTML = `<div class="network-loading">Could not render network: ${escapeHtml(error.message)}</div>`

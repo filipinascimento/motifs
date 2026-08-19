@@ -379,6 +379,14 @@ a:focus-visible {
 
 .network-actions button:hover { background: #f3f6f4; }
 
+.network-pruning-note {
+  align-self: center;
+  color: #6f7d77;
+  font-size: 9px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .network-toolbar {
   display: flex;
   align-items: center;
