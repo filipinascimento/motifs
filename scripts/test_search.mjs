@@ -37,8 +37,8 @@ assert(
 
 const microfluidicMatches = data.nodes.filter((node) => matchesSearch(node, 'microfluidic'))
 assert(
-  microfluidicMatches.some((node) => node.id === 'L2-liquid-microfluidic-routing'),
-  'Expected the recurrent liquid-microfluidic motif to match',
+  microfluidicMatches.some((node) => node.id === 'L2-epidermal-microfluidic-analysis-93b4a8cfe77298'),
+  'Expected a recurrent microfluidic motif to match',
 )
 assert(
   microfluidicMatches.some((node) => node.observations?.length),
@@ -49,10 +49,10 @@ assert(
   'Reviewed observation count must agree with the public-release manifest',
 )
 assert(data.observations.every((observation) => observation.anchor_ids.length), 'Every reviewed observation must have a visible motif anchor')
-assert(data.release_id === 'rogers_protocol_repair_v1-sammer-corrective', 'Expected the restored Sammer-corrective release')
-assert(data.counts?.by_level?.L1 === 9, 'Expected 9 L1 controlled families')
-assert(data.counts?.by_level?.L2 === 117, 'Expected 117 recurrent L2 motifs')
-assert(data.counts?.by_level?.L3 === 601, 'Expected 601 recurrent L3 records')
+assert(data.release_id === 'rogers_core_v2.1.2-hierarchy-rebuilt-rich-engineering', 'Expected the reviewed hierarchy-v2 release')
+assert(data.counts?.by_level?.L1 === 11, 'Expected 11 L1 controlled families')
+assert(data.counts?.by_level?.L2 === 221, 'Expected 221 recurrent L2 motifs')
+assert(data.counts?.by_level?.L3 === 369, 'Expected 369 recurrent L3 variants')
 assert(data.counts.by_level.L3 > data.counts.by_level.L2, 'L3 must be finer-grained than L2')
 assert(
   !data.nodes.some((node) => node.level === 'L2' && node.status === 'single_source_observation'),
@@ -67,18 +67,19 @@ assert(
   'The default co-use graph must exclude weight-1 edges',
 )
 
-const wirelessMatches = data.nodes.filter((node) => matchesSearch(node, 'wireless power transfer'))
+const wirelessQuery = 'wireless electromagnetic power transfer'
+const wirelessMatches = data.nodes.filter((node) => matchesSearch(node, wirelessQuery))
 assert(
-  wirelessMatches.some((node) => node.id === 'L2-wireless-power-transfer'),
+  wirelessMatches.some((node) => node.id === 'L2-resonant-near-field-wireless-power-transfer-99fa99ef0b74a1'),
   'Expected wireless power transfer to match',
 )
 
 const wirelessPrimary = data.nodes
-  .filter((node) => matchesPrimarySearch(node, 'wireless power transfer'))
-  .sort((a, b) => searchRelevance(b, 'wireless power transfer') - searchRelevance(a, 'wireless power transfer'))
+  .filter((node) => matchesPrimarySearch(node, wirelessQuery))
+  .sort((a, b) => searchRelevance(b, wirelessQuery) - searchRelevance(a, wirelessQuery))
 assert(wirelessPrimary.length > 0, 'Expected at least one primary wireless power match')
 assert(
-  wirelessPrimary[0].id === 'L2-wireless-power-transfer',
+  wirelessPrimary[0].id === 'L2-resonant-near-field-wireless-power-transfer-99fa99ef0b74a1',
   `Expected exact label match first, found ${wirelessPrimary[0]?.id}`,
 )
 

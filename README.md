@@ -15,7 +15,7 @@ This repository contains derived motif labels, descriptions, relationships,
 aggregate counts, timelines, aliases, facets, reviewed observations, paper
 titles and DOIs, device and variant records, component/motif assignments,
 accepted reported characteristics, normalized plot measurements, component
-interfaces, 1,476 reviewed engineering relationships, and the complete
+interfaces, 1,475 reviewed engineering relationships, and the complete
 public entity graph. These records describe papers already publicly available
 online.
 
@@ -24,10 +24,12 @@ page/block extraction provenance, quarantined records, internal run folders,
 or local filesystem paths. Full papers and private extraction artifacts must
 never be copied into this repository.
 
-The current motif view restores the established Rogers atlas while the August
-hierarchy rebuild is held back for review: 9 controlled L1 families, 117
-recurrent L2 motifs, and 601 recurrent L3 variants. All three hierarchy levels
-remain visible and selectable. The aligned engineering projection contains 901
+The current motif view publishes the reviewed August hierarchy rebuild: 11
+controlled L1 families, 221 recurrent L2 motifs, and 369 recurrent L3 variants.
+The separated families include power, electronics, computing/control, and
+communication. All three hierarchy levels remain visible and selectable, while
+811 reviewed single-paper implementations are retained as examples rather than
+promoted as recurrent motifs. The aligned engineering projection contains 901
 papers, 1,057 devices, 1,284 variants, 5,162 components, 3,834 interfaces, and
 4,505 accepted reported characteristics; 3,554 of those characteristics are
 numeric and plot-ready. The build rejects a device/paper projection whenever
@@ -48,11 +50,11 @@ Build the engineering projection from a reviewed, finalized release, then split
 it into compressed shards so every file stays below GitHub's file limit:
 
 ```bash
-python scripts/build_release_engineering_bundle.py \
-  --release-dir /path/to/finalized/release \
-  --hierarchy public/data/hierarchical_motifs.json \
-  --bundle-output /tmp/frontend_engineering_bundle.json \
-  --update-hierarchy
+python scripts/build_hybrid_release.py \
+  --release /path/to/finalized/hierarchy-v2-release \
+  --engineering /path/to/reviewed/frontend_engineering_bundle.json \
+  --hierarchy-output public/data/hierarchical_motifs.json \
+  --bundle-output /tmp/frontend_engineering_bundle.json
 
 node scripts/public_engineering_data.mjs export \
   /tmp/frontend_engineering_bundle.json \

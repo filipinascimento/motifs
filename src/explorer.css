@@ -1006,6 +1006,24 @@ a:focus-visible {
 
 .compact-list span { color: #75807c; font-size: 10px; line-height: 1.35; }
 
+.implementation-example {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 10px;
+  padding: 9px 10px;
+  border: 1px solid #dfe6e2;
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.implementation-example p {
+  grid-column: 1 / -1;
+  margin: 3px 0 0;
+  color: #5f6d67;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .paper-link { font-weight: 650; }
 
 .external-link,
