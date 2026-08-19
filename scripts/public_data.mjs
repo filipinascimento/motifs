@@ -98,7 +98,7 @@ function sanitize(data, observations = [], aliasMap = {}) {
     contains_evidence_samples: false,
     contains_full_text: false,
     contains_paper_ids: false,
-    contains_reviewed_observations: true,
+    contains_reviewed_observations: output.observations.length > 0,
     reviewed_observation_count: output.observations.length,
   }
 

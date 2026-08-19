@@ -51,6 +51,12 @@ export function motifResults(nodes = [], filters = {}) {
   return asArray(nodes)
     .filter((node) => !filters.level || filters.level === 'all' || node.level === filters.level)
     .filter((node) => !filters.family || filters.family === 'all' || familyForMotif(node) === filters.family || node.id === filters.family)
+    .filter((node) => {
+      if (!filters.registry || filters.registry === 'all') return true
+      if (filters.registry === 'canonical') return node.level === 'L1' || node.canonical !== false
+      if (filters.registry === 'observation') return node.status === 'single_source_observation'
+      return true
+    })
     .filter((node) => includesQuery(fieldsForScope({
       name: [node.label],
       description: [node.description],

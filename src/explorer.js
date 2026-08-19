@@ -57,6 +57,7 @@ const state = {
   searchFields: { motifs: 'all', devices: 'all', papers: 'all' },
   motifLevel: 'all',
   motifFamily: 'all',
+  motifRegistry: 'canonical',
   resultLimit: 40,
   minShared: 2,
   networkMode: '3d',
@@ -71,6 +72,7 @@ const state = {
   edgeTypes: { motifs: null, devices: null, papers: null },
   selected: { motifs: null, devices: null, papers: null },
   selectedEdge: null,
+  engineeringAligned: false,
 }
 
 const app = document.querySelector('#app')
@@ -122,6 +124,7 @@ function activeItems() {
       searchField: state.searchFields.motifs,
       level: state.motifLevel,
       family: state.motifFamily,
+      registry: state.motifRegistry,
     })
   }
   if (state.view === 'devices') return deviceResults(state.devices, state.query, state.searchFields.devices)
@@ -142,6 +145,8 @@ function updateUrl() {
   else url.searchParams.delete('q')
   if (state.searchFields[state.view] !== 'all') url.searchParams.set('search', state.searchFields[state.view])
   else url.searchParams.delete('search')
+  if (state.view === 'motifs' && state.motifRegistry !== 'canonical') url.searchParams.set('registry', state.motifRegistry)
+  else url.searchParams.delete('registry')
   const selected = state.selected[state.view]
   if (selected) url.searchParams.set('id', selected)
   else url.searchParams.delete('id')
@@ -155,17 +160,22 @@ function initialStateFromUrl() {
   state.query = url.searchParams.get('q') || ''
   const searchField = url.searchParams.get('search')
   if (SEARCH_FIELDS[state.view].some(([id]) => id === searchField)) state.searchFields[state.view] = searchField
+  const registry = url.searchParams.get('registry')
+  if (['canonical', 'observation', 'all'].includes(registry)) state.motifRegistry = registry
   const selected = url.searchParams.get('id')
   if (selected) state.selected[state.view] = selected
 }
 
 function headerMarkup() {
+  const counts = state.atlas.counts || {}
+  const canonical = Number(counts.by_status?.canonical_recurrent || 0) + Number(counts.by_status?.controlled_family || 0)
+  const observations = Number(counts.by_status?.single_source_observation || 0)
   return `<header class="app-header">
     <a class="brand" href="./" aria-label="Device motif atlas home"><span class="brand-mark">M</span><span>Device motif atlas</span></a>
     <nav class="view-tabs" aria-label="Explore by entity">
-      ${Object.entries(VIEWS).map(([id, view]) => `<button type="button" data-view="${id}" aria-current="${state.view === id ? 'page' : 'false'}">${view.label}</button>`).join('')}
+      ${Object.entries(VIEWS).filter(([id]) => id === 'motifs' || state.engineeringAligned).map(([id, view]) => `<button type="button" data-view="${id}" aria-current="${state.view === id ? 'page' : 'false'}">${view.label}</button>`).join('')}
     </nav>
-    <div class="corpus-count">${formatCount(state.engineering.papers.length)} papers · ${formatCount(state.devices.length)} devices · ${formatCount(state.atlas.nodes.length)} motifs</div>
+    <div class="corpus-count">${formatCount(canonical)} canonical/family · ${formatCount(observations)} observations · ${escapeHtml(state.atlas.release_id || 'current release')}</div>
   </header>`
 }
 
@@ -175,13 +185,14 @@ function filterSnapshot() {
   if (state.view === 'motifs') {
     snapshot.level = state.motifLevel
     snapshot.family = state.motifFamily
+    snapshot.registry = state.motifRegistry
   }
   return snapshot
 }
 
 function normalizedFilterSnapshot(snapshot = filterSnapshot()) {
   const isDefault = !snapshot.query
-    && (state.view !== 'motifs' || ((snapshot.level || 'all') === 'all' && (snapshot.family || 'all') === 'all'))
+    && (state.view !== 'motifs' || ((snapshot.level || 'all') === 'all' && (snapshot.family || 'all') === 'all' && (snapshot.registry || 'canonical') === 'canonical'))
   return isDefault ? null : snapshot
 }
 
@@ -200,6 +211,7 @@ function toolbarMarkup(graph = baseGraph()) {
     <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd aria-hidden="true">/</kbd></label>
     <label>Search in<select id="search-field">${SEARCH_FIELDS[state.view].map(([id, label]) => `<option value="${id}" ${state.searchFields[state.view] === id ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
     ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All levels</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
+      <label>Registry<select id="motif-registry"><option value="canonical" ${state.motifRegistry === 'canonical' ? 'selected' : ''}>Canonical motifs</option><option value="observation" ${state.motifRegistry === 'observation' ? 'selected' : ''}>Single-source observations</option><option value="all" ${state.motifRegistry === 'all' ? 'selected' : ''}>All records</option></select></label>
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       `}
     <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
@@ -213,7 +225,8 @@ function toolbarMarkup(graph = baseGraph()) {
 function resultCardMarkup(item) {
   const selected = state.selected[state.view] === item.id
   if (state.view === 'motifs') {
-    return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, state.atlas.corpus_papers_by_year || {})}</button>`
+    const status = item.level === 'L1' ? 'Controlled family' : item.status === 'single_source_observation' ? 'Single-source observation' : 'Canonical recurrent'
+    return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, state.atlas.corpus_papers_by_year || {})}</button>`
   }
   if (state.view === 'devices') {
     return `<button type="button" class="result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-kicker">${item.year || 'Year unknown'}${item.maturity ? ` · ${escapeHtml(displayLabel(item.maturity))}` : ''}</span><strong>${escapeHtml(item.label)}</strong><span>${item.motif_ids.length} motifs · ${escapeHtml(item.paper_title)}</span></button>`
@@ -283,6 +296,7 @@ function motifAdoptionDetailMarkup(node) {
 }
 
 function motifCharacteristicDetailMarkup(node) {
+  if (!state.engineeringAligned) return ''
   const trends = motifCharacteristicTrends(node.id, state.engineering, state.atlas.nodes)
   if (!trends.series.length) return ''
   const requested = state.characteristicSelections[node.id]
@@ -313,7 +327,7 @@ function motifCharacteristicDetailMarkup(node) {
 }
 
 function motifDetailMarkup(node) {
-  const implementations = implementationsForMotif(node.id, state.engineering, state.atlas.nodes)
+  const implementations = state.engineeringAligned ? implementationsForMotif(node.id, state.engineering, state.atlas.nodes) : []
   const recentDevices = [...new Map(implementations.slice().reverse().map((item) => [item.device_id, state.devices.find((device) => device.id === item.device_id)])).values()].filter(Boolean).slice(0, 6)
   const related = state.atlas.edges
     .filter((edge) => edge.source === node.id || edge.target === node.id)
@@ -321,8 +335,14 @@ function motifDetailMarkup(node) {
     .sort((a, b) => Number(b.weight || 0) - Number(a.weight || 0))
     .slice(0, 8)
     .map((edge) => edge.source === node.id ? edge.target : edge.source)
-  return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>
-    ${statGrid([['Papers', formatCount(node.paper_count)], ['Components', formatCount(node.component_count)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ['Implementations', formatCount(implementations.length)]])}
+  const status = node.level === 'L1' ? 'Controlled family' : node.status === 'single_source_observation' ? 'Single-source observation' : 'Canonical recurrent motif'
+  return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>
+    ${statGrid([['Status', status], ['Papers', formatCount(node.paper_count)], ['Devices', formatCount(node.device_count)], ['Components', formatCount(node.component_count)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ...(state.engineeringAligned ? [['Implementations', formatCount(implementations.length)]] : [])])}
+    ${node.function || node.mechanism ? `<section class="detail-section detail-facts">${node.function ? `<div><span>Function</span><p>${escapeHtml(node.function)}</p></div>` : ''}${node.mechanism ? `<div><span>Mechanism</span><p>${escapeHtml(node.mechanism)}</p></div>` : ''}</section>` : ''}
+    ${node.inputs?.length ? `<section class="detail-section"><h3>Inputs</h3><div class="chip-list">${node.inputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
+    ${node.outputs?.length ? `<section class="detail-section"><h3>Outputs</h3><div class="chip-list">${node.outputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
+    ${node.design_handles?.length ? `<section class="detail-section"><h3>Design handles</h3><div class="chip-list">${node.design_handles.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
+    ${node.failure_modes?.length ? `<section class="detail-section"><h3>Failure modes / limitations</h3><ul class="plain-list">${node.failure_modes.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></section>` : ''}
     ${motifAdoptionDetailMarkup(node)}
     ${motifCharacteristicDetailMarkup(node)}
     ${related.length ? `<section class="detail-section"><h3>Related motifs</h3>${motifChips(related, 8)}</section>` : ''}
@@ -397,8 +417,8 @@ function baseGraph() {
       searchField: applied?.searchField || 'all',
       level: applied?.level || 'all',
       family: applied?.family || 'all',
+      registry: applied?.registry || 'canonical',
     })
-    if (!applied) nodes = state.atlas.nodes
     const selected = state.selected.motifs
     const selectedNode = selected ? state.atlas.nodes.find((node) => node.id === selected) : null
     if (selectedNode && !nodes.some((node) => node.id === selected)) nodes = [selectedNode, ...nodes]
@@ -529,6 +549,7 @@ function bindUiEvents() {
     updateLiveFiltering()
   })
   document.querySelector('#motif-level')?.addEventListener('change', (event) => { state.motifLevel = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
+  document.querySelector('#motif-registry')?.addEventListener('change', (event) => { state.motifRegistry = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#motif-family')?.addEventListener('change', (event) => { state.motifFamily = event.target.value; state.resultLimit = 40; updateLiveFiltering() })
   document.querySelector('#minimum-shared')?.addEventListener('change', (event) => { state.minShared = Number(event.target.value); renderApp() })
   document.querySelectorAll('[data-center-view]').forEach((button) => button.addEventListener('click', () => {
@@ -816,9 +837,13 @@ async function load() {
     if (!atlasResponse.ok) throw new Error(`Motif atlas: ${atlasResponse.status}`)
     state.atlas = await atlasResponse.json()
     state.engineering = engineeringBundleToCharacteristics(engineeringResult.bundle)
-    state.devices = deviceCatalog(state.engineering, state.atlas.nodes)
-    state.papers = paperCatalog(state.engineering, state.atlas.nodes, state.devices)
+    const atlasIds = new Set(state.atlas.nodes.map((node) => node.id))
+    const engineeringIds = new Set((state.engineering.entities?.motifs || []).map((node) => node.motif_id))
+    state.engineeringAligned = atlasIds.size === engineeringIds.size && [...atlasIds].every((id) => engineeringIds.has(id))
+    state.devices = state.engineeringAligned ? deviceCatalog(state.engineering, state.atlas.nodes) : []
+    state.papers = state.engineeringAligned ? paperCatalog(state.engineering, state.atlas.nodes, state.devices) : []
     initialStateFromUrl()
+    if (!state.engineeringAligned && state.view !== 'motifs') state.view = 'motifs'
     renderApp()
   } catch (error) {
     app.innerHTML = `<div class="app-loading error"><strong>Could not load the atlas</strong><span>${escapeHtml(error.message)}</span></div>`

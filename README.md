@@ -23,6 +23,14 @@ page/block extraction provenance, quarantined records, internal run folders,
 or local filesystem paths. Full papers and private extraction artifacts must
 never be copied into this repository.
 
+The current motif view publishes `rogers_core_v2.1.2-hierarchy-rebuilt`: 11
+controlled L1 families, 221 recurrent L2 motifs, and 1,180 finer-grained L3
+records. The registry filter keeps the 811 single-source L3 observations
+visibly separate from recurrent canonical motifs. Device/paper projections are
+withheld automatically whenever their engineering bundle does not match the
+motif release exactly; they must not be silently mixed across taxonomy
+versions.
+
 The motif public-data tool removes private source paths, evidence samples, and
 internal paper identifiers from the aggregate motif atlas:
 

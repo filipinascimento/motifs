@@ -17,6 +17,7 @@ const motifs = [
   { id: 'family', label: 'Sensing', level: 'L1', paper_count: 5, family_ids: [] },
   { id: 'wireless', label: 'Wireless power', level: 'L2', paper_count: 4, family_ids: ['family'], aliases: ['inductive power'] },
   { id: 'strain', label: 'Strain sensor', level: 'L3', paper_count: 2, family_ids: ['family'] },
+  { id: 'observation', label: 'One-off strain layout', level: 'L3', paper_count: 1, family_ids: ['family'], canonical: false, status: 'single_source_observation' },
 ]
 
 const characteristics = {
@@ -49,6 +50,8 @@ test('motif explorer filters by level, family, aliases, and ranks by paper count
   assert.deepEqual(motifResults(motifs, { query: 'wireless', searchField: 'name' }).map((row) => row.id), ['wireless'])
   assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'name' }), [])
   assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'aliases' }).map((row) => row.id), ['wireless'])
+  assert.deepEqual(motifResults(motifs, { registry: 'observation' }).map((row) => row.id), ['observation'])
+  assert(!motifResults(motifs, { registry: 'canonical' }).some((row) => row.id === 'observation'))
 })
 
 test('device explorer excludes organizing L1 motifs and searches paper and function fields', () => {
