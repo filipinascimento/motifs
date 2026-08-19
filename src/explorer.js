@@ -27,6 +27,7 @@ const EDGE_COLORS = {
   parent_of: '#ff7f0e',
   similarity: '#2ca02c',
   used_with: '#9467bd',
+  l2_co_use: '#0f766e',
   shared_motifs: '#17becf',
 }
 const VIEWS = {
@@ -99,7 +100,13 @@ function escapeHtml(value = '') {
 }
 
 function displayLabel(value = '') {
-  return String(value || '').replaceAll('_', ' ')
+  const labels = {
+    parent_of: 'Hierarchy',
+    used_with: 'Direct L3 co-use',
+    l2_co_use: 'L2 co-use (device roll-up)',
+    used_with_rollup: 'L2 co-use (device roll-up)',
+  }
+  return labels[value] || String(value || '').replaceAll('_', ' ')
 }
 
 function formatCount(value) {
@@ -419,7 +426,16 @@ function edgeDetailMarkup(edge, graph) {
   const source = graph.nodes.find((node) => node.id === edge.source)
   const target = graph.nodes.find((node) => node.id === edge.target)
   const shared = sharedMotifLabels(edge, state.atlas.nodes)
-  return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(displayLabel(edge.type || edge.group))}</div><h2>${escapeHtml(source?.label || edge.source)} <span class="arrow">${edge.directed ? '→' : '↔'}</span> ${escapeHtml(target?.label || edge.target)}</h2>${edge.weight ? statGrid([['Strength', formatCount(edge.weight)]]) : ''}${shared.length ? `<section class="detail-section"><h3>Shared motifs</h3>${motifChips(edge.shared_motif_ids)}</section>` : ''}</article>`
+  const stats = [
+    ...(edge.paper_count ? [['Papers', formatCount(edge.paper_count)]] : []),
+    ...(edge.device_count ? [['Devices', formatCount(edge.device_count)]] : []),
+    ...(edge.first_year ? [['Years', `${edge.first_year}–${edge.last_year}`]] : []),
+    ...(!edge.paper_count && edge.weight ? [['Strength', formatCount(edge.weight)]] : []),
+  ]
+  const rollupNote = edge.group === 'l2_co_use'
+    ? '<p class="detail-summary">Hierarchy-aware co-use derived from motifs assigned to the same extracted device. Each supporting paper is counted once.</p>'
+    : ''
+  return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(displayLabel(edge.group || edge.type))}</div><h2>${escapeHtml(source?.label || edge.source)} <span class="arrow">${edge.directed ? '→' : '↔'}</span> ${escapeHtml(target?.label || edge.target)}</h2>${rollupNote}${stats.length ? statGrid(stats) : ''}${shared.length ? `<section class="detail-section"><h3>Shared motifs</h3>${motifChips(edge.shared_motif_ids)}</section>` : ''}</article>`
 }
 
 function detailMarkup(graph = currentGraph()) {
