@@ -1065,6 +1065,15 @@ a:focus-visible {
 
 .plain-list li { margin: 0; }
 
+.extraction-vocabulary-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #e2e9e6;
+  border-radius: 10px;
+  background: #f8faf9;
+  line-height: 1.5;
+}
+
 .component-list { grid-template-columns: 1fr; gap: 9px; }
 .component-list li { padding-bottom: 8px; border-bottom: 1px solid #edf1ef; }
 .component-list strong,
