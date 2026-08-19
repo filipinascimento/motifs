@@ -78,7 +78,11 @@ function sanitize(value) {
 function sanitizePaper(row) {
   const paper = sanitize(row)
   const citationTitle = String(paper.citation || '').replace(/\s+\([^()]*,\s*\d{4}[a-z]?\)\s*$/u, '').trim()
-  if (/\.pdf$/iu.test(String(paper.title || ''))) paper.title = citationTitle || `Paper ${paper.publication_year || ''}`.trim()
+  const title = String(paper.title || '').trim()
+  const looksLikeFileStem = title && !/\s/u.test(title) && /^[\p{Letter}\p{Number}_.-]+$/u.test(title)
+  if (/\.pdf$/iu.test(title) || (looksLikeFileStem && citationTitle.length > title.length + 12)) {
+    paper.title = citationTitle || `Paper ${paper.publication_year || ''}`.trim()
+  }
   if (/\.pdf$/iu.test(String(paper.document_title || ''))) paper.document_title = paper.title
   return paper
 }

@@ -34,6 +34,11 @@ const characteristics = {
       D3: { device_id: 'D3', name: 'Device three', paper_id: 'P3', year: 2024, direct_motif_ids: ['L2-X'], motif_ids: ['L1-A', 'L2-X'], records: {} },
     },
   },
+  papers: [
+    { paper_id: 'P1', title: 'Paper one', citation: 'Paper one (2020)' },
+    { paper_id: 'P2', title: 'Paper two', citation: 'Paper two (2022)' },
+    { paper_id: 'P3', title: 'Paper three', citation: 'Paper three (2024)' },
+  ],
 }
 
 test('similarity projection retains shared motif evidence and bounds neighbors', () => {
@@ -84,6 +89,24 @@ test('paper view links papers through motifs used by their devices', () => {
   assert.equal(graph.nodes.length, 3)
   assert.equal(graph.edges.length, 1)
   assert.match(graph.note, /Papers are linked/)
+})
+
+test('paper projections replace filename-like labels with bibliographic titles', () => {
+  const source = structuredClone(characteristics)
+  source.indexes.papers.P1.title = 'adfmthermal'
+  source.indexes.papers.P1.citation = 'A Bioresorbable Neural Interface for On‐Demand Thermal Pain Block (Adv. Funct. Mater., Rogers et al., 2026)'
+  source.papers[0] = {
+    paper_id: 'P1',
+    title: 'adfmthermal',
+    citation: source.indexes.papers.P1.citation,
+  }
+  source.graph.nodes[0].label = 'adfmthermal'
+
+  const papers = projectedEntityNetwork(source, motifs, { view: 'paper', minShared: 1, maxNodes: 50 })
+  assert.equal(papers.nodes.find((node) => node.id === 'P1').label, 'A Bioresorbable Neural Interface for On‐Demand Thermal Pain Block')
+
+  const atomic = projectedEntityNetwork(source, motifs, { view: 'atomic' })
+  assert.equal(atomic.nodes.find((node) => node.id === 'P1').label, 'A Bioresorbable Neural Interface for On‐Demand Thermal Pain Block')
 })
 
 test('entity projections accept the exact result IDs from scoped search', () => {

@@ -1,3 +1,5 @@
+import { readablePaperTitle } from './explorerData.js'
+
 function asArray(value) {
   return Array.isArray(value) ? value : []
 }
@@ -157,19 +159,22 @@ function deviceNodes(characteristics, atlasNodes, options) {
 
 function paperNodes(characteristics, atlasNodes, options) {
   const motifById = new Map(asArray(atlasNodes).map((node) => [node.id, node]))
+  const paperEntityById = new Map(asArray(characteristics?.papers).map((paper) => [paper.paper_id, paper]))
   const devices = characteristics?.indexes?.devices || {}
   const query = String(options.query || '').trim().toLocaleLowerCase()
   const allowedNodeIds = options.nodeIds === undefined || options.nodeIds === null
     ? null
     : new Set(options.nodeIds)
   return Object.values(characteristics?.indexes?.papers || {}).map((paper) => {
+    const entity = paperEntityById.get(paper.paper_id) || {}
+    const label = readablePaperTitle(entity, paper) || entity.document_title || paper.paper_id
     const directMotifs = unique(asArray(paper.device_ids).flatMap((id) => asArray(devices[id]?.direct_motif_ids)))
       .filter((id) => motifById.get(id)?.level !== 'L1')
     const scopeMotifs = unique(asArray(paper.device_ids).flatMap((id) => asArray(devices[id]?.motif_ids).length ? asArray(devices[id]?.motif_ids) : asArray(devices[id]?.direct_motif_ids)))
     const motifLabels = directMotifs.map((id) => motifById.get(id)?.label || id)
     return {
       id: paper.paper_id,
-      label: paper.title || paper.paper_id,
+      label,
       type: 'paper',
       category: String(paper.year || 'year unknown'),
       year: paper.year,
@@ -179,7 +184,7 @@ function paperNodes(characteristics, atlasNodes, options) {
       motif_labels: motifLabels,
       score: directMotifs.length * 2 + asArray(paper.device_ids).length * 3 + recordCount(paper),
       metadata: paper,
-      search: searchableText(paper.title, paper.paper_id, paper.year, motifLabels),
+      search: searchableText(label, entity.citation, paper.citation, paper.paper_id, paper.year, motifLabels),
     }
   }).filter((node) => (!allowedNodeIds || allowedNodeIds.has(node.id))
     && (!options.motifId || node.scope_motif_ids.includes(options.motifId))
@@ -193,6 +198,7 @@ export function projectedEntityNetwork(characteristics, atlasNodes = [], options
   const topK = Math.max(1, Number(options.topK || 8))
   if (view === 'atomic') {
     const indexes = characteristics?.indexes || {}
+    const paperEntityById = new Map(asArray(characteristics?.papers).map((paper) => [paper.paper_id, paper]))
     const indexByType = {
       paper: indexes.papers || {},
       device: indexes.devices || {},
@@ -203,11 +209,14 @@ export function projectedEntityNetwork(characteristics, atlasNodes = [], options
     }
     const nodes = asArray(characteristics?.graph?.nodes).map((node) => {
       const metadata = indexByType[node.type]?.[node.id] || {}
+      const paperEntity = node.type === 'paper' ? paperEntityById.get(node.id) || {} : {}
       const motifIds = node.type === 'motif' ? [node.id]
         : asArray(metadata.direct_motif_ids || metadata.motif_ids)
       return {
         id: node.id,
-        label: node.label || node.id,
+        label: node.type === 'paper'
+          ? readablePaperTitle(paperEntity, metadata) || paperEntity.document_title || node.label || node.id
+          : node.label || node.id,
         type: node.type,
         category: node.type,
         year: metadata.year || '',
