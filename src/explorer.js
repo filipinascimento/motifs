@@ -83,6 +83,10 @@ let searchTimer = null
 let resultObserver = null
 let loadingMoreResults = false
 
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
 document.addEventListener('keydown', (event) => {
   if (event.key !== '/' || ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
   event.preventDefault()
@@ -172,7 +176,7 @@ function headerMarkup() {
   const l1 = Number(counts.by_level?.L1 || state.atlas.nodes.filter((node) => node.level === 'L1').length)
   const recurrent = state.atlas.nodes.filter((node) => node.level !== 'L1'
     && ['recurrent', 'canonical_recurrent'].includes(node.status)).length
-  const observations = state.atlas.nodes.filter((node) => node.status === 'single_source_observation').length
+  const observations = asArray(state.atlas.observations).length
   return `<header class="app-header">
     <a class="brand" href="./" aria-label="Device motif atlas home"><span class="brand-mark">M</span><span>Device motif atlas</span></a>
     <nav class="view-tabs" aria-label="Explore by entity">
@@ -301,6 +305,18 @@ function motifAdoptionDetailMarkup(node) {
   return `<section class="detail-section motif-adoption-detail"><div class="detail-section-heading"><h3>Adoption over time</h3><div class="mini-switch" aria-label="Adoption measure"><button type="button" data-adoption-measure="papers" class="${state.adoptionMeasure === 'papers' ? 'active' : ''}">Papers</button><button type="button" data-adoption-measure="share" class="${state.adoptionMeasure === 'share' ? 'active' : ''}">Share</button></div></div>${detailAdoptionChartMarkup(node, state.atlas.corpus_papers_by_year || {}, state.adoptionMeasure)}</section>`
 }
 
+function motifExamplesMarkup(node) {
+  const examples = asArray(node.observations)
+    .sort((a, b) => Number(b.year || 0) - Number(a.year || 0) || String(a.label || '').localeCompare(String(b.label || '')))
+  if (!examples.length) return ''
+  const visible = examples.slice(0, 8)
+  return `<section class="detail-section motif-examples"><div class="detail-section-heading"><h3>Implementation examples</h3><span>${formatCount(examples.length)} reviewed</span></div>
+    <p class="subtle">Paper-specific methods and numeric settings are examples of this recurrent motif, not additional canonical L3 variants.</p>
+    <div class="compact-list">${visible.map((example) => `<div class="implementation-example"><strong>${escapeHtml(example.label)}</strong><span>${escapeHtml(example.year || 'Year not reported')}</span>${example.rationale ? `<p>${escapeHtml(example.rationale)}</p>` : ''}</div>`).join('')}</div>
+    ${examples.length > visible.length ? `<p class="subtle">Showing ${visible.length} of ${examples.length} reviewed examples.</p>` : ''}
+  </section>`
+}
+
 function motifCharacteristicDetailMarkup(node) {
   if (!state.engineeringAligned) return ''
   const trends = motifCharacteristicTrends(node.id, state.engineering, state.atlas.nodes)
@@ -353,6 +369,7 @@ function motifDetailMarkup(node) {
     ${node.inputs?.length || node.outputs?.length ? '<p class="subtle extraction-vocabulary-note">Paper-specific input/output phrases are retained in the extraction data but omitted here: they are unnormalized evidence vocabulary, not motif-level ports or device metrics.</p>' : ''}
     ${designHandles.total ? `<section class="detail-section"><h3>Reported design variables</h3><p class="subtle">Examples from the extracted paper vocabulary${designHandles.hidden ? `; showing ${designHandles.visible.length} of ${designHandles.total}` : ''}.</p><div class="chip-list">${designHandles.visible.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
     ${failureModes.total ? `<section class="detail-section"><h3>Reported limitations / failure modes</h3><p class="subtle">Examples from the extracted paper vocabulary${failureModes.hidden ? `; showing ${failureModes.visible.length} of ${failureModes.total}` : ''}.</p><ul class="plain-list">${failureModes.visible.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></section>` : ''}
+    ${motifExamplesMarkup(node)}
     ${motifAdoptionDetailMarkup(node)}
     ${motifCharacteristicDetailMarkup(node)}
     ${related.length ? `<section class="detail-section"><h3>Related motifs</h3>${motifChips(related, 8)}</section>` : ''}
@@ -847,6 +864,11 @@ async function load() {
     ])
     if (!atlasResponse.ok) throw new Error(`Motif atlas: ${atlasResponse.status}`)
     state.atlas = await atlasResponse.json()
+    const motifById = new Map(state.atlas.nodes.map((node) => [node.id, node]))
+    state.atlas.nodes.forEach((node) => { node.observations = [] })
+    for (const observation of asArray(state.atlas.observations)) {
+      for (const anchorId of asArray(observation.anchor_ids)) motifById.get(anchorId)?.observations.push(observation)
+    }
     state.engineering = engineeringBundleToCharacteristics(engineeringResult.bundle)
     const atlasIds = new Set(state.atlas.nodes.map((node) => node.id))
     const engineeringIds = new Set((state.engineering.entities?.motifs || []).map((node) => node.motif_id))
