@@ -318,7 +318,10 @@ export function engineeringBundleToCharacteristics(bundle = {}) {
       implementation_scope: 'physical_device',
       function: device.intended_function || device.function || device.device_function || '',
       configuration_label: variant.configuration_label || '',
-      direct_motif_ids: unique(parts.flatMap((row) => asArray(row.motif_ids))),
+      direct_motif_ids: unique([
+        ...asArray(variant.motif_ids),
+        ...parts.flatMap((row) => asArray(row.motif_ids)),
+      ]),
       component_ids: parts.map((row) => row.component_id),
       components: parts.map((row) => row.name || row.component_name || row.component_id),
       materials: unique(parts.flatMap((row) => asArray(row.materials).concat(row.material || []))),
