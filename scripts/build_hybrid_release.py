@@ -18,6 +18,7 @@ import json
 import re
 from collections import Counter, defaultdict
 from difflib import SequenceMatcher
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -387,6 +388,65 @@ def hierarchy_edges(release: Path, nodes: list[dict[str, Any]], observations: di
     return edges
 
 
+def l2_device_rollup_edges(
+    devices: list[dict[str, Any]],
+    nodes: list[dict[str, Any]],
+    release_rows: dict[str, dict[str, Any]],
+    observations: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Roll device motif compositions up to recurrent L2 co-use.
+
+    Each extracted device contributes at most once to an L2 pair and each paper
+    contributes at most once to its published edge weight.  This preserves the
+    direct L3 co-use layer while exposing the hierarchy-aware L2 projection.
+    """
+    level_by_id = {node["id"]: node["level"] for node in nodes}
+    support: dict[tuple[str, str], dict[str, set[Any]]] = defaultdict(
+        lambda: {"papers": set(), "devices": set(), "years": set()}
+    )
+
+    for device in devices:
+        l2_ids: set[str] = set()
+        for motif_id in strings(device.get("motif_ids")):
+            row = release_rows.get(motif_id) or observations.get(motif_id) or {}
+            if level_by_id.get(motif_id) == "L2":
+                l2_ids.add(motif_id)
+            else:
+                parent = str(row.get("parent_l2_id") or "")
+                if level_by_id.get(parent) == "L2":
+                    l2_ids.add(parent)
+        for source, target in combinations(sorted(l2_ids), 2):
+            item = support[(source, target)]
+            item["papers"].add(str(device["source_id"]))
+            item["devices"].add(str(device["device_id"]))
+            if device.get("source_year"):
+                item["years"].add(int(device["source_year"]))
+
+    edges: list[dict[str, Any]] = []
+    for (source, target), item in sorted(support.items()):
+        paper_count = len(item["papers"])
+        if paper_count < 2:
+            continue
+        years = sorted(item["years"])
+        edges.append({
+            "id": f"E-l2-device-rollup-{sha1(source, target)}",
+            "source": source,
+            "target": target,
+            "type": "used_with_rollup",
+            "group": "l2_co_use",
+            "directed": False,
+            "weight": paper_count,
+            "paper_count": paper_count,
+            "device_count": len(item["devices"]),
+            "first_year": min(years, default=""),
+            "last_year": max(years, default=""),
+            "rollup_level": "L2",
+            "support_unit": "distinct_papers",
+            "evidence_basis": "same_extracted_device",
+        })
+    return edges
+
+
 def validate_release(hierarchy: dict[str, Any], bundle: dict[str, Any]) -> None:
     nodes = hierarchy["nodes"]
     by_level = Counter(node["level"] for node in nodes)
@@ -403,6 +463,14 @@ def validate_release(hierarchy: dict[str, Any], bundle: dict[str, Any]) -> None:
             raise ValueError(f"motif label is not generalized: {node['label']}")
     if any(edge["group"] == "used_with" and int(edge.get("paper_count") or 0) < 2 for edge in hierarchy["edges"]):
         raise ValueError("co-occurrence edge below default weight 2")
+    l2_rollups = [edge for edge in hierarchy["edges"] if edge["group"] == "l2_co_use"]
+    if any(
+        int(edge.get("paper_count") or 0) < 2
+        or levels.get(edge["source"]) != "L2"
+        or levels.get(edge["target"]) != "L2"
+        for edge in l2_rollups
+    ):
+        raise ValueError("invalid L2 device co-use roll-up")
     engineering_ids = {row["motif_id"] for row in bundle["entities"]["motifs"]}
     if ids != engineering_ids:
         raise ValueError("hierarchy/engineering motif registries differ")
@@ -537,6 +605,7 @@ def build(args) -> None:
     }
 
     edges = hierarchy_edges(args.release, nodes, observations)
+    edges.extend(l2_device_rollup_edges(new_devices, nodes, release_rows, observations))
     corpus = Counter(paper_years.values())
     hierarchy = {
         "schema_version": "2.2.0",
@@ -557,7 +626,7 @@ def build(args) -> None:
         "review_policy": {
             "hierarchy": "L1 broad families; L2 recurrent functional motifs; L3 recurrent implementation variants.",
             "single_source": "Single-paper method fragments are retained as examples anchored to recurrent L2 parents.",
-            "cooccurrence": "Default co-use backbone requires at least two distinct papers.",
+            "cooccurrence": "Direct L3 co-use and device-derived L2 roll-ups are separate layers; both require at least two distinct papers.",
         },
     }
     validate_release(hierarchy, bundle)

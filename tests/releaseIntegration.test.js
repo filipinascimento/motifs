@@ -52,6 +52,16 @@ test('published release keeps motifs, papers, devices, components, metrics, and 
   const levelById = new Map(atlas.nodes.map((node) => [node.id, node.level]))
   assert.ok(atlas.nodes.filter((node) => node.level === 'L3').every((node) => node.parent_ids.length === 1 && levelById.get(node.parent_ids[0]) === 'L2'))
   assert.ok(atlas.edges.filter((edge) => edge.group === 'used_with').every((edge) => edge.paper_count >= 2))
+  const l2Rollups = atlas.edges.filter((edge) => edge.group === 'l2_co_use')
+  assert.equal(l2Rollups.length, 462)
+  assert.ok(l2Rollups.every((edge) => (
+    edge.type === 'used_with_rollup'
+    && edge.paper_count >= 2
+    && edge.support_unit === 'distinct_papers'
+    && edge.evidence_basis === 'same_extracted_device'
+    && levelById.get(edge.source) === 'L2'
+    && levelById.get(edge.target) === 'L2'
+  )))
   const l1Labels = new Set(atlas.nodes.filter((node) => node.level === 'L1').map((node) => node.label))
   for (const label of ['Power and Energy', 'Electronics and Signal Conditioning', 'Computing, Control, and Decision Support', 'Communication and Data Transfer']) {
     assert.ok(l1Labels.has(label))
