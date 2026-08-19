@@ -30,6 +30,22 @@ test('emerging motifs exclude overall leaders and require negligible prior share
   assert.equal(groups.recentStart, 2022)
 })
 
+test('adoption ranking honors the exact active hierarchy-level scope', () => {
+  const corpus = { 2022: 100, 2023: 100 }
+  const nodes = [
+    { id: 'l1', level: 'L1', label: 'L1 family', paper_count: 100, annual_paper_counts: { 2023: 100 } },
+    { id: 'l2', level: 'L2', label: 'L2 motif', paper_count: 50, annual_paper_counts: { 2023: 50 } },
+    { id: 'l3', level: 'L3', label: 'L3 variant', paper_count: 25, annual_paper_counts: { 2023: 25 } },
+  ]
+  const policy = { top_n: 10, recent_year_window: 1 }
+
+  assert.deepEqual(motifTimelineGroups(nodes, corpus, policy).overall.map((node) => node.id), ['l1', 'l2', 'l3'])
+  for (const level of ['L1', 'L2', 'L3']) {
+    const filtered = nodes.filter((node) => node.level === level)
+    assert.deepEqual(motifTimelineGroups(filtered, corpus, policy).overall.map((node) => node.id), [level.toLocaleLowerCase()])
+  }
+})
+
 test('characteristic trends merge category partitions while preserving unit compatibility', () => {
   const nodes = [{ id: 'M', parent_ids: [] }]
   const implementations = Array.from({ length: 11 }, (_, index) => ({

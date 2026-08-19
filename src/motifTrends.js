@@ -31,9 +31,11 @@ export function motifAdoptionSeries(node = {}, corpusPapersByYear = {}) {
 /**
  * Rank established and emerging motifs for the adoption overview.
  *
- * L1 families are organizational rollups, so L2/L3 motifs take precedence
- * whenever any are present. Emerging motifs exclude the overall leaders and
- * must account for less than 1% of all papers before the recent window.
+ * The caller supplies the exact active level/search/family scope. Do not
+ * silently remove hierarchy levels here: a combined L1+L2+L3 selection must
+ * rank all three, while a level-specific selection ranks only that level.
+ * Emerging motifs exclude the overall leaders and must account for less than
+ * 1% of all papers before the recent window.
  */
 export function motifTimelineGroups(nodes = [], corpusPapersByYear = {}, policy = {}) {
   const years = adoptionYears(corpusPapersByYear)
@@ -43,9 +45,7 @@ export function motifTimelineGroups(nodes = [], corpusPapersByYear = {}, policy 
   const recentWindow = Number(policy.recent_year_window || 5)
   const priorShareLimit = Number(policy.prior_share_max_exclusive ?? 0.01)
   const recentStart = years.at(-1) - recentWindow + 1
-  const available = asArray(nodes).filter((node) => !node.pending)
-  const detailed = available.filter((node) => node.level !== 'L1')
-  const candidates = detailed.length ? detailed : available
+  const candidates = asArray(nodes).filter((node) => !node.pending)
 
   const overall = candidates.slice()
     .sort((a, b) => Number(b.paper_count || 0) - Number(a.paper_count || 0)
