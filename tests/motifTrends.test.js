@@ -99,3 +99,24 @@ test('characteristic trends preserve comparable scope partitions', () => {
     ['whole_device', 4, 4],
   ])
 })
+
+test('characteristic trends include metrics reported directly for a motif', () => {
+  const nodes = [
+    { id: 'parent', parent_ids: [] },
+    { id: 'child', parent_ids: ['parent'] },
+  ]
+  const observations = Array.from({ length: 3 }, (_, index) => ({
+    observation_id: `M${index}`,
+    motif_id: 'child',
+    year: 2020 + index,
+    category: 'geometry',
+    metric: 'thickness',
+    normalized_value: index + 1,
+    normalized_unit: 'µm',
+    plottable: true,
+  }))
+  const result = motifCharacteristicTrends('parent', { implementations: [], observations }, nodes)
+  assert.equal(result.deviceCount, 0)
+  assert.equal(result.series.length, 1)
+  assert.equal(result.series[0].observationCount, 3)
+})

@@ -14,9 +14,10 @@ interaction run in the visitor's browser.
 This repository contains derived motif labels, descriptions, relationships,
 aggregate counts, timelines, aliases, facets, reviewed observations, paper
 titles and DOIs, device and variant records, component/motif assignments,
-accepted normalized measurements, structured engineering relationships,
-failures, constraints, coverage decisions, and the complete atomic entity
-graph. These records describe papers already publicly available online.
+accepted reported characteristics, normalized plot measurements, component
+interface descriptors, 1,902 reviewed semantic relationships, and the complete
+public entity graph. These records describe papers already publicly available
+online.
 
 It intentionally does not contain article PDFs, full text, source quotations,
 page/block extraction provenance, quarantined records, internal run folders,
@@ -25,11 +26,13 @@ never be copied into this repository.
 
 The current motif view publishes `rogers_core_v2.1.2-hierarchy-rebuilt`: 11
 controlled L1 families, 221 recurrent L2 motifs, and 1,180 finer-grained L3
-records. The registry filter keeps the 811 single-source L3 observations
-visibly separate from recurrent canonical motifs. Device/paper projections are
-withheld automatically whenever their engineering bundle does not match the
-motif release exactly; they must not be silently mixed across taxonomy
-versions.
+records. L1 records are organizational taxonomy families rather than extracted
+motifs, so the default explorer begins with the 590 recurrent L2/L3 motifs and
+keeps the 811 single-paper L3 observations in a separate registry. The aligned
+engineering projection contains 901 papers, 1,008 devices, 1,754 variants,
+2,513 components, and 4,170 reported characteristics; 2,956 of those
+characteristics are numeric and plot-ready. The build rejects a device/paper
+projection whenever its motif IDs do not match the hierarchy exactly.
 
 The motif public-data tool removes private source paths, evidence samples, and
 internal paper identifiers from the aggregate motif atlas:
@@ -42,12 +45,19 @@ node scripts/public_data.mjs export \
   --aliases config/search_aliases.json
 ```
 
-The engineering export is split into compressed shards so every file stays
-well below GitHub's file limit:
+Build the engineering projection directly from the finalized motif-v2 release,
+then split it into compressed shards so every file stays below GitHub's file
+limit:
 
 ```bash
+python scripts/build_release_engineering_bundle.py \
+  --release-dir /path/to/finalized/motif-v2-release \
+  --hierarchy public/data/hierarchical_motifs.json \
+  --bundle-output /tmp/frontend_engineering_bundle.json \
+  --update-hierarchy
+
 node scripts/public_engineering_data.mjs export \
-  /path/to/private/frontend_engineering_bundle.json \
+  /tmp/frontend_engineering_bundle.json \
   public/data/engineering
 ```
 
@@ -67,7 +77,7 @@ node scripts/check_bundle_parity.mjs \
   --forbid-id L1-power-electronics-communication-computation \
   --forbid-id L2-radio-frequency-or-nfc-telemetry
 
-# Equivalent repository command (expected to fail until migration is complete)
+# Equivalent repository command
 npm run data:parity
 ```
 

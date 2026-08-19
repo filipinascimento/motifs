@@ -57,7 +57,7 @@ const state = {
   searchFields: { motifs: 'all', devices: 'all', papers: 'all' },
   motifLevel: 'all',
   motifFamily: 'all',
-  motifRegistry: 'canonical',
+  motifRegistry: 'recurrent',
   resultLimit: 40,
   minShared: 2,
   networkMode: '3d',
@@ -145,7 +145,7 @@ function updateUrl() {
   else url.searchParams.delete('q')
   if (state.searchFields[state.view] !== 'all') url.searchParams.set('search', state.searchFields[state.view])
   else url.searchParams.delete('search')
-  if (state.view === 'motifs' && state.motifRegistry !== 'canonical') url.searchParams.set('registry', state.motifRegistry)
+  if (state.view === 'motifs' && state.motifRegistry !== 'recurrent') url.searchParams.set('registry', state.motifRegistry)
   else url.searchParams.delete('registry')
   const selected = state.selected[state.view]
   if (selected) url.searchParams.set('id', selected)
@@ -161,21 +161,24 @@ function initialStateFromUrl() {
   const searchField = url.searchParams.get('search')
   if (SEARCH_FIELDS[state.view].some(([id]) => id === searchField)) state.searchFields[state.view] = searchField
   const registry = url.searchParams.get('registry')
-  if (['canonical', 'observation', 'all'].includes(registry)) state.motifRegistry = registry
+  if (['recurrent', 'observation', 'all'].includes(registry)) state.motifRegistry = registry
   const selected = url.searchParams.get('id')
-  if (selected) state.selected[state.view] = selected
+  if (selected) {
+    const selectedNode = state.view === 'motifs' ? state.atlas.nodes.find((node) => node.id === selected) : null
+    if (!selectedNode || selectedNode.level !== 'L1') state.selected[state.view] = selected
+  }
 }
 
 function headerMarkup() {
   const counts = state.atlas.counts || {}
-  const canonical = Number(counts.by_status?.canonical_recurrent || 0) + Number(counts.by_status?.controlled_family || 0)
+  const recurrent = Number(counts.by_status?.canonical_recurrent || 0)
   const observations = Number(counts.by_status?.single_source_observation || 0)
   return `<header class="app-header">
     <a class="brand" href="./" aria-label="Device motif atlas home"><span class="brand-mark">M</span><span>Device motif atlas</span></a>
     <nav class="view-tabs" aria-label="Explore by entity">
       ${Object.entries(VIEWS).filter(([id]) => id === 'motifs' || state.engineeringAligned).map(([id, view]) => `<button type="button" data-view="${id}" aria-current="${state.view === id ? 'page' : 'false'}">${view.label}</button>`).join('')}
     </nav>
-    <div class="corpus-count">${formatCount(canonical)} canonical/family · ${formatCount(observations)} observations · ${escapeHtml(state.atlas.release_id || 'current release')}</div>
+    <div class="corpus-count">${formatCount(state.engineering.papers.length)} papers · ${formatCount(state.devices.length)} devices · ${formatCount(recurrent)} recurrent motifs · ${formatCount(observations)} observations</div>
   </header>`
 }
 
@@ -192,7 +195,7 @@ function filterSnapshot() {
 
 function normalizedFilterSnapshot(snapshot = filterSnapshot()) {
   const isDefault = !snapshot.query
-    && (state.view !== 'motifs' || ((snapshot.level || 'all') === 'all' && (snapshot.family || 'all') === 'all' && (snapshot.registry || 'canonical') === 'canonical'))
+    && (state.view !== 'motifs' || ((snapshot.level || 'all') === 'all' && (snapshot.family || 'all') === 'all' && (snapshot.registry || 'recurrent') === 'recurrent'))
   return isDefault ? null : snapshot
 }
 
@@ -210,8 +213,8 @@ function toolbarMarkup(graph = baseGraph()) {
   return `<section class="toolbar">
     <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd aria-hidden="true">/</kbd></label>
     <label>Search in<select id="search-field">${SEARCH_FIELDS[state.view].map(([id, label]) => `<option value="${id}" ${state.searchFields[state.view] === id ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
-    ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All levels</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
-      <label>Registry<select id="motif-registry"><option value="canonical" ${state.motifRegistry === 'canonical' ? 'selected' : ''}>Canonical motifs</option><option value="observation" ${state.motifRegistry === 'observation' ? 'selected' : ''}>Single-source observations</option><option value="all" ${state.motifRegistry === 'all' ? 'selected' : ''}>All records</option></select></label>
+    ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All motif levels</option>${['L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
+      <label>Registry<select id="motif-registry"><option value="recurrent" ${state.motifRegistry === 'recurrent' ? 'selected' : ''}>Recurrent motifs</option><option value="observation" ${state.motifRegistry === 'observation' ? 'selected' : ''}>Single-paper observations</option><option value="all" ${state.motifRegistry === 'all' ? 'selected' : ''}>All motif records</option></select></label>
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       `}
     <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
@@ -225,7 +228,7 @@ function toolbarMarkup(graph = baseGraph()) {
 function resultCardMarkup(item) {
   const selected = state.selected[state.view] === item.id
   if (state.view === 'motifs') {
-    const status = item.level === 'L1' ? 'Controlled family' : item.status === 'single_source_observation' ? 'Single-source observation' : 'Canonical recurrent'
+    const status = item.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
     return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, state.atlas.corpus_papers_by_year || {})}</button>`
   }
   if (state.view === 'devices') {
@@ -302,7 +305,7 @@ function motifCharacteristicDetailMarkup(node) {
   const requested = state.characteristicSelections[node.id]
   const selected = trends.series.find((series) => series.key === requested) || trends.series[0]
   state.characteristicSelections[node.id] = selected.key
-  const eligibleScopes = selected.scopes.filter((scope) => scope.observationCount > 10)
+  const eligibleScopes = selected.scopes.filter((scope) => scope.observationCount > 2)
   const scopeKey = `${node.id}|${selected.key}`
   const requestedScope = state.characteristicScopeSelections[scopeKey]
   const scopePriority = ['whole_device', 'component', 'fabrication_process', 'simulation', 'experimental_setup', 'unspecified']
@@ -317,7 +320,7 @@ function motifCharacteristicDetailMarkup(node) {
     deviceCount: selectedScope.deviceCount,
   } : selected
   if (requestedScope === undefined && selectedScope) state.characteristicScopeSelections[scopeKey] = selectedScope.scope
-  return `<section class="detail-section characteristic-trends"><div class="detail-section-heading"><h3>Reported values over time</h3><span>${formatCount(trends.deviceCount)} motif devices</span></div>
+  return `<section class="detail-section characteristic-trends"><div class="detail-section-heading"><h3>Reported device metrics over time</h3><span>${trends.deviceCount ? `${formatCount(trends.deviceCount)} motif devices` : 'Motif-level reports'}</span></div>
     <div class="characteristic-controls"><label class="characteristic-picker"><span>Characteristic</span><select id="motif-characteristic">${trends.series.map((series) => `<option value="${escapeHtml(series.key)}" ${series.key === selected.key ? 'selected' : ''}>${escapeHtml(displayLabel(series.displayMetric))} (${escapeHtml(series.unit)}) · ${formatCount(series.observationCount)}</option>`).join('')}</select></label>
     ${eligibleScopes.length ? `<label class="characteristic-picker"><span>Comparable scope</span><select id="motif-characteristic-scope">${eligibleScopes.map((scope) => `<option value="${escapeHtml(scope.scope)}" ${scope.scope === selectedScope?.scope ? 'selected' : ''}>${escapeHtml(displayLabel(scope.scope))} · ${formatCount(scope.observationCount)}</option>`).join('')}<option value="all" ${selectedScope ? '' : 'selected'}>All scopes (mixed) · ${formatCount(selected.observationCount)}</option></select></label>` : ''}</div>
     <div class="characteristic-chart-heading"><strong>${escapeHtml(displayLabel(selected.displayMetric))}${selectedScope ? ` · ${escapeHtml(displayLabel(selectedScope.scope))}` : ''}</strong><span>${formatCount(plotted.observationCount)} observations · ${formatCount(plotted.deviceCount)} devices · ${escapeHtml(plotted.unit)}</span></div>
@@ -328,6 +331,7 @@ function motifCharacteristicDetailMarkup(node) {
 
 function motifDetailMarkup(node) {
   const implementations = state.engineeringAligned ? implementationsForMotif(node.id, state.engineering, state.atlas.nodes) : []
+  const relationshipCount = state.engineering.indexes?.motifs?.[node.id]?.records?.relationship_ids?.length || 0
   const recentDevices = [...new Map(implementations.slice().reverse().map((item) => [item.device_id, state.devices.find((device) => device.id === item.device_id)])).values()].filter(Boolean).slice(0, 6)
   const related = state.atlas.edges
     .filter((edge) => edge.source === node.id || edge.target === node.id)
@@ -335,12 +339,11 @@ function motifDetailMarkup(node) {
     .sort((a, b) => Number(b.weight || 0) - Number(a.weight || 0))
     .slice(0, 8)
     .map((edge) => edge.source === node.id ? edge.target : edge.source)
-  const status = node.level === 'L1' ? 'Controlled family' : node.status === 'single_source_observation' ? 'Single-source observation' : 'Canonical recurrent motif'
+  const status = node.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
   return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>
-    ${statGrid([['Status', status], ['Papers', formatCount(node.paper_count)], ['Devices', formatCount(node.device_count)], ['Components', formatCount(node.component_count)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ...(state.engineeringAligned ? [['Implementations', formatCount(implementations.length)]] : [])])}
+    ${statGrid([['Status', status], ['Papers', formatCount(node.paper_count)], ['Devices', formatCount(node.device_count)], ['Components', formatCount(node.component_count)], ['Relations', formatCount(relationshipCount)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ...(state.engineeringAligned ? [['Implementations', formatCount(implementations.length)]] : [])])}
     ${node.function || node.mechanism ? `<section class="detail-section detail-facts">${node.function ? `<div><span>Function</span><p>${escapeHtml(node.function)}</p></div>` : ''}${node.mechanism ? `<div><span>Mechanism</span><p>${escapeHtml(node.mechanism)}</p></div>` : ''}</section>` : ''}
-    ${node.inputs?.length ? `<section class="detail-section"><h3>Inputs</h3><div class="chip-list">${node.inputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
-    ${node.outputs?.length ? `<section class="detail-section"><h3>Outputs</h3><div class="chip-list">${node.outputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
+    ${node.inputs?.length || node.outputs?.length ? `<section class="detail-section"><h3>Functional interface</h3><p class="subtle">What this reusable building block receives and produces; these are not device performance measurements.</p>${node.inputs?.length ? `<div class="detail-facts"><div><span>Receives</span><div class="chip-list">${node.inputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></div></div>` : ''}${node.outputs?.length ? `<div class="detail-facts"><div><span>Produces</span><div class="chip-list">${node.outputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></div></div>` : ''}</section>` : ''}
     ${node.design_handles?.length ? `<section class="detail-section"><h3>Design handles</h3><div class="chip-list">${node.design_handles.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
     ${node.failure_modes?.length ? `<section class="detail-section"><h3>Failure modes / limitations</h3><ul class="plain-list">${node.failure_modes.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></section>` : ''}
     ${motifAdoptionDetailMarkup(node)}
@@ -363,14 +366,15 @@ function measurementTable(rows) {
 function deviceDetailMarkup(device) {
   const values = measurementsForDevice(state.engineering, device.id)
   const components = componentsForDevice(state.engineering, device.id)
+  const interfaceTermCount = new Set(components.flatMap((row) => row.interface_terms || [])).size
   const doi = doiUrl(device.doi)
   return `<article class="entity-detail"><div class="detail-kicker">Device · ${device.year || 'year unknown'}${device.maturity ? ` · ${escapeHtml(displayLabel(device.maturity))}` : ''}</div><h2>${escapeHtml(device.label)}</h2><p class="detail-summary">${escapeHtml(device.function || device.application || '')}</p>
-    ${statGrid([['Variants', formatCount(device.variant_ids.length)], ['Components', formatCount(device.component_ids.length)], ['Interfaces', formatCount(device.interface_ids.length)], ['Values', formatCount(values.length)]])}
+    ${statGrid([['Variants', formatCount(device.variant_ids.length)], ['Components', formatCount(device.component_ids.length)], ['Interface descriptors', formatCount(interfaceTermCount)], ['Reported values', formatCount(values.length)], ['Relations', formatCount(device.record_counts.relationships)]])}
     <section class="detail-section"><h3>Paper</h3><button type="button" class="paper-link" data-open-view="papers" data-open-id="${device.paper_id}">${escapeHtml(device.paper_title)}</button>${doi ? `<a class="external-link" href="${escapeHtml(doi)}" target="_blank" rel="noopener noreferrer">Open DOI ↗</a>` : ''}</section>
     ${device.application || device.environment ? `<section class="detail-section detail-facts">${device.application ? `<div><span>Application</span><p>${escapeHtml(device.application)}</p></div>` : ''}${device.environment ? `<div><span>Environment</span><p>${escapeHtml(device.environment)}</p></div>` : ''}</section>` : ''}
     ${device.motif_ids.length ? `<section class="detail-section"><h3>Functional motifs</h3>${motifChips(device.motif_ids)}</section>` : ''}
     ${measurementTable(values)}
-    ${components.length ? `<section class="detail-section"><h3>Components</h3><ul class="plain-list">${components.slice(0, 12).map((row) => `<li>${escapeHtml(row.name || row.component_name || 'Component')}</li>`).join('')}</ul>${components.length > 12 ? `<p class="subtle">${components.length - 12} more components</p>` : ''}</section>` : ''}
+    ${components.length ? `<section class="detail-section"><h3>Components</h3><ul class="plain-list component-list">${components.slice(0, 12).map((row) => `<li><strong>${escapeHtml(row.name || row.component_name || 'Component')}</strong>${row.component_type || row.materials?.length ? `<span>${escapeHtml([row.component_type, ...(row.materials || [])].filter(Boolean).join(' · '))}</span>` : ''}${row.function ? `<p>${escapeHtml(row.function)}</p>` : ''}</li>`).join('')}</ul>${components.length > 12 ? `<p class="subtle">${components.length - 12} more components</p>` : ''}</section>` : ''}
   </article>`
 }
 
@@ -379,7 +383,7 @@ function paperDetailMarkup(paper) {
   const doi = doiUrl(paper.doi)
   const measurementCount = paper.record_counts.accepted_measurement_ids || 0
   return `<article class="entity-detail"><div class="detail-kicker">Paper · ${paper.year || 'year unknown'}</div><h2>${escapeHtml(paper.label)}</h2>${paper.citation && paper.citation !== paper.label ? `<p class="detail-summary">${escapeHtml(paper.citation)}</p>` : ''}
-    ${statGrid([['Devices', formatCount(devices.length)], ['Motifs', formatCount(paper.motif_ids.length)], ['Values', formatCount(measurementCount)]])}
+    ${statGrid([['Devices', formatCount(devices.length)], ['Motifs', formatCount(paper.motif_ids.length)], ['Values', formatCount(measurementCount)], ['Relations', formatCount(paper.record_counts.relationship_ids)]])}
     ${doi ? `<a class="primary-link" href="${escapeHtml(doi)}" target="_blank" rel="noopener noreferrer">Open paper via DOI ↗</a>` : ''}
     ${devices.length ? `<section class="detail-section"><h3>Devices in this paper</h3><div class="compact-list">${devices.map((device) => `<button type="button" data-open-view="devices" data-open-id="${device.id}"><strong>${escapeHtml(device.label)}</strong><span>${device.motif_ids.length} motifs · ${device.variant_ids.length} variants</span></button>`).join('')}</div></section>` : ''}
     ${paper.motif_ids.length ? `<section class="detail-section"><h3>Functional motifs</h3>${motifChips(paper.motif_ids)}</section>` : ''}
@@ -417,7 +421,7 @@ function baseGraph() {
       searchField: applied?.searchField || 'all',
       level: applied?.level || 'all',
       family: applied?.family || 'all',
-      registry: applied?.registry || 'canonical',
+      registry: applied?.registry || 'recurrent',
     })
     const selected = state.selected.motifs
     const selectedNode = selected ? state.atlas.nodes.find((node) => node.id === selected) : null

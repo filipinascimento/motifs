@@ -1,4 +1,4 @@
-import { implementationsForMotif, normalizedBounds } from './characteristics.js'
+import { implementationsForMotif, motifAncestors, normalizedBounds } from './characteristics.js'
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -100,17 +100,27 @@ export function motifCharacteristicTrends(
   motifId,
   characteristics,
   motifNodes = [],
-  { minDevicesExclusive = 10, minObservationsExclusive = 10 } = {},
+  { minDevicesExclusive = 2, minObservationsExclusive = 2 } = {},
 ) {
   if (!motifId || !characteristics) return { deviceCount: 0, series: [] }
   const implementations = implementationsForMotif(motifId, characteristics, motifNodes)
   const deviceIds = new Set(implementations.map((item) => item.device_id).filter(Boolean))
-  if (deviceIds.size <= minDevicesExclusive) return { deviceCount: deviceIds.size, series: [] }
-
   const implementationIds = new Set(implementations.map((item) => item.implementation_id).filter(Boolean))
+  const ancestorMap = motifAncestors(motifNodes)
+  const scopedMotifIds = new Set([motifId])
+  for (const node of asArray(motifNodes)) {
+    if (ancestorMap.get(node.id)?.has(motifId)) scopedMotifIds.add(node.id)
+  }
+  const directMotifObservations = asArray(characteristics.observations)
+    .filter((item) => item.motif_id && scopedMotifIds.has(item.motif_id))
+  if (deviceIds.size <= minDevicesExclusive && directMotifObservations.length <= minObservationsExclusive) {
+    return { deviceCount: deviceIds.size, series: [] }
+  }
+
   const groups = new Map()
   for (const observation of asArray(characteristics.observations)) {
-    if (!implementationIds.has(observation.implementation_id)) continue
+    if (!implementationIds.has(observation.implementation_id)
+      && !(observation.motif_id && scopedMotifIds.has(observation.motif_id))) continue
     if (observation.plottable === false || !observation.normalized_unit) continue
     const year = numeric(observation.year)
     const bounds = normalizedBounds(observation)
