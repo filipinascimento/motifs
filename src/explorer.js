@@ -164,22 +164,21 @@ function initialStateFromUrl() {
   const registry = url.searchParams.get('registry')
   if (['recurrent', 'observation', 'all'].includes(registry)) state.motifRegistry = registry
   const selected = url.searchParams.get('id')
-  if (selected) {
-    const selectedNode = state.view === 'motifs' ? state.atlas.nodes.find((node) => node.id === selected) : null
-    if (!selectedNode || selectedNode.level !== 'L1') state.selected[state.view] = selected
-  }
+  if (selected) state.selected[state.view] = selected
 }
 
 function headerMarkup() {
   const counts = state.atlas.counts || {}
-  const recurrent = Number(counts.by_status?.canonical_recurrent || 0)
-  const observations = Number(counts.by_status?.single_source_observation || 0)
+  const l1 = Number(counts.by_level?.L1 || state.atlas.nodes.filter((node) => node.level === 'L1').length)
+  const recurrent = state.atlas.nodes.filter((node) => node.level !== 'L1'
+    && ['recurrent', 'canonical_recurrent'].includes(node.status)).length
+  const observations = state.atlas.nodes.filter((node) => node.status === 'single_source_observation').length
   return `<header class="app-header">
     <a class="brand" href="./" aria-label="Device motif atlas home"><span class="brand-mark">M</span><span>Device motif atlas</span></a>
     <nav class="view-tabs" aria-label="Explore by entity">
       ${Object.entries(VIEWS).filter(([id]) => id === 'motifs' || state.engineeringAligned).map(([id, view]) => `<button type="button" data-view="${id}" aria-current="${state.view === id ? 'page' : 'false'}">${view.label}</button>`).join('')}
     </nav>
-    <div class="corpus-count">${formatCount(state.engineering.papers.length)} papers · ${formatCount(state.devices.length)} devices · ${formatCount(recurrent)} recurrent motifs · ${formatCount(observations)} observations</div>
+    <div class="corpus-count">${formatCount(state.engineering.papers.length)} papers · ${formatCount(state.devices.length)} devices · ${formatCount(l1)} L1 families · ${formatCount(recurrent)} recurrent L2/L3 motifs${observations ? ` · ${formatCount(observations)} observations` : ''}</div>
   </header>`
 }
 
@@ -206,6 +205,7 @@ function filterIsPending() {
 
 function toolbarMarkup(graph = baseGraph()) {
   const families = state.atlas.nodes.filter((node) => node.level === 'L1')
+  const hasObservationNodes = state.atlas.nodes.some((node) => node.status === 'single_source_observation')
   const edgeTypes = availableEdgeTypes(graph)
   const selectedTypes = state.edgeTypes[state.view]
   const selectedCount = selectedTypes === null
@@ -214,8 +214,8 @@ function toolbarMarkup(graph = baseGraph()) {
   return `<section class="toolbar">
     <label class="global-search"><span class="sr-only">Search ${VIEWS[state.view].label}</span><input id="entity-search" type="search" value="${escapeHtml(state.query)}" placeholder="${escapeHtml(VIEWS[state.view].placeholder)}" autocomplete="off"/><kbd aria-hidden="true">/</kbd></label>
     <label>Search in<select id="search-field">${SEARCH_FIELDS[state.view].map(([id, label]) => `<option value="${id}" ${state.searchFields[state.view] === id ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
-    ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">All motif levels</option>${['L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
-      <label>Registry<select id="motif-registry"><option value="recurrent" ${state.motifRegistry === 'recurrent' ? 'selected' : ''}>Recurrent motifs</option><option value="observation" ${state.motifRegistry === 'observation' ? 'selected' : ''}>Single-paper observations</option><option value="all" ${state.motifRegistry === 'all' ? 'selected' : ''}>All motif records</option></select></label>
+    ${state.view === 'motifs' ? `<label>Level<select id="motif-level"><option value="all">L1 + L2 + L3</option>${['L1', 'L2', 'L3'].map((level) => `<option value="${level}" ${state.motifLevel === level ? 'selected' : ''}>${level}</option>`).join('')}</select></label>
+      ${hasObservationNodes ? `<label>Registry<select id="motif-registry"><option value="recurrent" ${state.motifRegistry === 'recurrent' ? 'selected' : ''}>Families + recurrent motifs</option><option value="observation" ${state.motifRegistry === 'observation' ? 'selected' : ''}>Single-paper observations</option><option value="all" ${state.motifRegistry === 'all' ? 'selected' : ''}>All motif records</option></select></label>` : ''}
       <label>Family<select id="motif-family"><option value="all">All families</option>${families.map((family) => `<option value="${family.id}" ${state.motifFamily === family.id ? 'selected' : ''}>${escapeHtml(family.label)}</option>`).join('')}</select></label>` : `<label>Similarity<select id="minimum-shared">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${state.minShared === value ? 'selected' : ''}>${value}+ shared motifs</option>`).join('')}</select></label>
       `}
     <div class="filter-actions"><button type="button" id="apply-network-filter" ${filterIsPending() ? '' : 'disabled'}>Apply to network (${formatCount(activeItems().length)})</button>${state.appliedFilters[state.view] ? '<button type="button" id="clear-network-filter">Clear network filter</button>' : ''}</div>
@@ -229,7 +229,9 @@ function toolbarMarkup(graph = baseGraph()) {
 function resultCardMarkup(item) {
   const selected = state.selected[state.view] === item.id
   if (state.view === 'motifs') {
-    const status = item.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
+    const status = item.level === 'L1'
+      ? 'Controlled family'
+      : item.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
     return `<button type="button" class="result-card motif-result-card ${selected ? 'selected' : ''}" data-result-id="${item.id}"><span class="result-card-copy"><span class="result-kicker">${escapeHtml(item.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(item)))}</span><strong>${escapeHtml(item.label)}</strong><span class="result-meta">${formatCount(item.paper_count)} papers · ${item.first_year || '—'}–${item.last_year || '—'}</span></span>${motifSparklineMarkup(item, state.atlas.corpus_papers_by_year || {})}</button>`
   }
   if (state.view === 'devices') {
@@ -340,7 +342,9 @@ function motifDetailMarkup(node) {
     .sort((a, b) => Number(b.weight || 0) - Number(a.weight || 0))
     .slice(0, 8)
     .map((edge) => edge.source === node.id ? edge.target : edge.source)
-  const status = node.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
+  const status = node.level === 'L1'
+    ? 'Controlled family'
+    : node.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
   const designHandles = extractedTermPreview(node.design_handles, 8)
   const failureModes = extractedTermPreview(node.failure_modes, 8)
   return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>

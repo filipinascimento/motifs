@@ -1,9 +1,9 @@
 {
   "schema_id": "public-rogers-engineering-shards",
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-19T05:47:24.418990+00:00",
+  "generated_at": "2026-07-30T19:59:53.497327+00:00",
   "bundle_schema_id": "rogers-engineering-frontend-bundle",
-  "bundle_schema_version": "1.1.0",
+  "bundle_schema_version": "1.0.0",
   "bundle_qa_passed": true,
   "public_release": {
     "contains_article_pdfs": false,
@@ -19,19 +19,19 @@
   },
   "counts": {
     "papers": 901,
-    "devices": 1008,
-    "device_variants": 1754,
-    "components": 2513,
-    "interfaces": 0,
-    "motifs": 1412,
-    "accepted_measurements": 4170,
-    "plot_measurements": 2956,
-    "relationships": 1902,
-    "failures": 0,
-    "constraints": 0,
-    "coverage": 0,
-    "graph_nodes": 7588,
-    "graph_edges": 10957
+    "devices": 1057,
+    "device_variants": 1284,
+    "components": 5162,
+    "interfaces": 3834,
+    "motifs": 727,
+    "accepted_measurements": 4505,
+    "plot_measurements": 3554,
+    "relationships": 1476,
+    "failures": 168,
+    "constraints": 446,
+    "coverage": 25140,
+    "graph_nodes": 12965,
+    "graph_edges": 25706
   },
   "measurements": {
     "plot_policy": "Only accepted, normalized, finite numeric values/ranges/bounds enter plots. Quarantined records are not included in the public release."
@@ -41,91 +41,91 @@
       "path": "entities.json.gz",
       "target": "entities",
       "merge": "replace",
-      "rows": 7588,
-      "bytes": 842904,
-      "uncompressed_bytes": 4042330,
-      "sha256": "ef70f7b2edd5f60399157e15e995c9a84dbaa0e3e86e846a6889c645ad3853c7",
-      "content_sha256": "b30ca8901a3f1cb6af7df9b0abfbe5d0bc75726e6a66714178d5f3ef8f95b425"
+      "rows": 12965,
+      "bytes": 1850080,
+      "uncompressed_bytes": 10172551,
+      "sha256": "c3a354c52b858b02b836de6f25d4c4819236a29e0ebd041d9ac571c9853e4ccb",
+      "content_sha256": "5338aa22b46a5749326f71e9ed4544cb6882bd0636aae08ba1daf20f3667c98f"
     },
     {
       "path": "measurements-2003-2010.json.gz",
       "target": "measurements.accepted",
       "merge": "concat",
-      "rows": 1048,
-      "bytes": 101886,
-      "uncompressed_bytes": 830550,
-      "sha256": "ed75a48c6dc17d77cded2f3f34353278a30329605d86b1d98838a7e2871262e9",
-      "content_sha256": "109949aff179585c09de858d3d5051bc7a7773a491dd7a6a9a0878fcdedc2bd2"
+      "rows": 1013,
+      "bytes": 82125,
+      "uncompressed_bytes": 1311478,
+      "sha256": "0bb0baf221e4e954cb1d509c3dfb59dca34a1c78caa9b7203cf01d1a6f15b1ea",
+      "content_sha256": "9a892c0e1ef09f5ad6c959b98c3fec9271203abcb2d7ee66c8d5e897d3adf712"
     },
     {
       "path": "measurements-2011-2016.json.gz",
       "target": "measurements.accepted",
       "merge": "concat",
-      "rows": 1259,
-      "bytes": 124519,
-      "uncompressed_bytes": 1006770,
-      "sha256": "75b2bc0ddd7b02766a0215eeb77325d4706b9948df81c7d7004014c02e44343f",
-      "content_sha256": "ac2e835a8e6512cca44e97e0022e2f1a4b9940c66e8a3b53bcb9b928ea3a7dc2"
+      "rows": 1439,
+      "bytes": 110735,
+      "uncompressed_bytes": 1856478,
+      "sha256": "18ca98eef1a4b44454b5ad249b56c371742416d76bab2f428fe22b486c35b449",
+      "content_sha256": "0a90efa08ed9ba710ec085bd3b6d7acb4c05df1d8027080dc640261f019c5068"
     },
     {
       "path": "measurements-2017-2021.json.gz",
       "target": "measurements.accepted",
       "merge": "concat",
-      "rows": 1113,
-      "bytes": 113451,
-      "uncompressed_bytes": 889667,
-      "sha256": "9ef3a381c325fa2004bff17ddc6b9f9b65f0439e116b94229a1872e8b9f4f890",
-      "content_sha256": "7a3d1d9313b36727d089f43ac96abf006bacfc5b02ba199a567174e73e8c31aa"
+      "rows": 1330,
+      "bytes": 96381,
+      "uncompressed_bytes": 1681604,
+      "sha256": "8442a851237cf9699d4093cf420f4c753f2458c9f635f2f127587cf614760c5f",
+      "content_sha256": "ebc2e8f820a4dd3b179a9df432ce8f7c6cba02b6888b1d2127b1f8c8c4c8fd2e"
     },
     {
       "path": "measurements-2022-2026.json.gz",
       "target": "measurements.accepted",
       "merge": "concat",
-      "rows": 750,
-      "bytes": 75400,
-      "uncompressed_bytes": 598573,
-      "sha256": "d4010b099ae55c68f48f403c6a4e1fd65464722f07ce19daf1926b75de81bfe5",
-      "content_sha256": "ff92495100e76d8828057170cbdf2833357b66dae4fae0de3a3a96015a33dc92"
+      "rows": 723,
+      "bytes": 57965,
+      "uncompressed_bytes": 922895,
+      "sha256": "bee800dde543c4997c5720f259a3e07f9110698858352bbd596142ef77a8ca79",
+      "content_sha256": "ff037b3a74de287d55608bbba7a68b5e0d94bc11f1c8dae56e295864a1dfa1a0"
     },
     {
       "path": "measurement-plots.json.gz",
       "target": "measurements.plot_points",
       "merge": "replace",
-      "rows": 2956,
-      "bytes": 165579,
-      "uncompressed_bytes": 1287130,
-      "sha256": "8ca6157969d14370b2b7be630b644282bc22b73edfa758a589aebc203a64c6bf",
-      "content_sha256": "23628a35bdf59c269516618814624ffaefe90a21a92e836103bfaa063ed4df32"
+      "rows": 3554,
+      "bytes": 229701,
+      "uncompressed_bytes": 2883525,
+      "sha256": "29d828827e5fa2cd05b2a45c2ed90b8e8c1671bceee4727b97980f3af669e9a7",
+      "content_sha256": "ce233eb1a903b79aa3dd3636a45443cf7da78e03b638fa649a2cf1dbc0925e16"
     },
     {
       "path": "knowledge.json.gz",
       "target": "knowledge",
       "merge": "replace",
-      "rows": 1902,
-      "bytes": 211661,
-      "uncompressed_bytes": 1073992,
-      "sha256": "f4067976c754efbf47b5138b079420139cf331ce8d12214eff30a1891ea96a39",
-      "content_sha256": "dc9ab5622490dfaf427bdb0cc4c3527c8ce8244e3936b3a04f56c7ed1ff00814"
+      "rows": 27230,
+      "bytes": 1383224,
+      "uncompressed_bytes": 28875506,
+      "sha256": "94b535a83f60d510ef10c101f970593becf66188c8c134f546f869dbbd66a269",
+      "content_sha256": "923a0974107c10f6c1bcc1b1c20b7a87995183a1674952b1314c0efbfc940deb"
     },
     {
       "path": "indexes.json.gz",
       "target": "indexes",
       "merge": "replace",
       "rows": 0,
-      "bytes": 1645810,
-      "uncompressed_bytes": 8202083,
-      "sha256": "11a3ddeb28ac992f5587db0715bee7532fd208e37cbca5a69a3f0c0016412320",
-      "content_sha256": "3521451a29e9ae9648d9483d4e16f6638016e1e8b9b12f5a21db8de3c7d3113f"
+      "bytes": 3358379,
+      "uncompressed_bytes": 19326323,
+      "sha256": "7434b61ff28e88b7ef073404a29c6d8dd4a2593c205f94892721259a62b70205",
+      "content_sha256": "f58f8a898cc730183bb165895bda3f702d8889991ac9627aacdb99d6a86d79f7"
     },
     {
       "path": "graph.json.gz",
       "target": "graph",
       "merge": "replace",
-      "rows": 18545,
-      "bytes": 661737,
-      "uncompressed_bytes": 4102003,
-      "sha256": "35303efbdfd6bfdbd6e0bf872e1b20686be42de758e7b3074e8e7573ecd5f927",
-      "content_sha256": "41c7b1fe7c9becbd2f4cedf3c7352feb4a69283bf2d9ac65fb70e5b40992dbc0"
+      "rows": 38671,
+      "bytes": 915311,
+      "uncompressed_bytes": 9587927,
+      "sha256": "dabbcfe933b946a658ae63a769b0a75dd5422e9611e731a66088ccd923a5e9dc",
+      "content_sha256": "43dc93bcc1d9f925ed780df0530ab5218a8ba0a503f273ee542a0a564f01e1a9"
     }
   ]
 }

@@ -67,8 +67,11 @@ export function motifResults(nodes = [], filters = {}) {
     .filter((node) => !filters.family || filters.family === 'all' || familyForMotif(node) === filters.family || node.id === filters.family)
     .filter((node) => {
       const registry = filters.registry || 'all'
-      if (registry === 'all') return node.level !== 'L1'
-      if (registry === 'recurrent') return node.level !== 'L1' && node.status === 'canonical_recurrent'
+      if (registry === 'all') return true
+      if (registry === 'recurrent') {
+        return ['controlled_family', 'recurrent', 'canonical_recurrent'].includes(node.status)
+          || node.canonical === true
+      }
       if (filters.registry === 'observation') return node.status === 'single_source_observation'
       return false
     })

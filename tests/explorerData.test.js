@@ -15,7 +15,7 @@ import {
 } from '../src/explorerData.js'
 
 const motifs = [
-  { id: 'family', label: 'Sensing', level: 'L1', paper_count: 5, family_ids: [] },
+  { id: 'family', label: 'Sensing', level: 'L1', paper_count: 5, family_ids: [], status: 'controlled_family', canonical: true },
   { id: 'wireless', label: 'Wireless power', level: 'L2', paper_count: 4, family_ids: ['family'], aliases: ['inductive power'], status: 'canonical_recurrent' },
   { id: 'strain', label: 'Strain sensor', level: 'L3', paper_count: 2, family_ids: ['family'], status: 'canonical_recurrent' },
   { id: 'observation', label: 'One-off strain layout', level: 'L3', paper_count: 1, family_ids: ['family'], canonical: false, status: 'single_source_observation' },
@@ -52,8 +52,8 @@ test('motif explorer filters by level, family, aliases, and ranks by paper count
   assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'name' }), [])
   assert.deepEqual(motifResults(motifs, { query: 'inductive', searchField: 'aliases' }).map((row) => row.id), ['wireless'])
   assert.deepEqual(motifResults(motifs, { registry: 'observation' }).map((row) => row.id), ['observation'])
-  assert.deepEqual(motifResults(motifs, { registry: 'recurrent' }).map((row) => row.id), ['wireless', 'strain'])
-  assert(!motifResults(motifs, { registry: 'all' }).some((row) => row.level === 'L1'))
+  assert.deepEqual(motifResults(motifs, { registry: 'recurrent' }).map((row) => row.id), ['family', 'wireless', 'strain'])
+  assert(motifResults(motifs, { registry: 'all' }).some((row) => row.level === 'L1'))
 })
 
 test('extracted vocabulary previews are bounded and collapse case-only duplicates', () => {
