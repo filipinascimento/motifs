@@ -12,6 +12,7 @@ import {
   deviceCatalog,
   deviceResults,
   edgeCategory,
+  extractedTermPreview,
   familyForMotif,
   filterEdgesByCategory,
   measurementsForDevice,
@@ -340,12 +341,14 @@ function motifDetailMarkup(node) {
     .slice(0, 8)
     .map((edge) => edge.source === node.id ? edge.target : edge.source)
   const status = node.status === 'single_source_observation' ? 'Single-paper observation' : 'Recurrent motif'
+  const designHandles = extractedTermPreview(node.design_handles, 8)
+  const failureModes = extractedTermPreview(node.failure_modes, 8)
   return `<article class="entity-detail"><div class="detail-kicker">${escapeHtml(node.level)} · ${escapeHtml(status)} · ${escapeHtml(familyLabel(familyForMotif(node)))}</div><h2>${escapeHtml(node.label)}</h2><p class="detail-summary">${escapeHtml(node.description || '')}</p>
     ${statGrid([['Status', status], ['Papers', formatCount(node.paper_count)], ['Devices', formatCount(node.device_count)], ['Components', formatCount(node.component_count)], ['Relations', formatCount(relationshipCount)], ['Years', node.first_year ? `${node.first_year}–${node.last_year}` : '—'], ...(state.engineeringAligned ? [['Implementations', formatCount(implementations.length)]] : [])])}
     ${node.function || node.mechanism ? `<section class="detail-section detail-facts">${node.function ? `<div><span>Function</span><p>${escapeHtml(node.function)}</p></div>` : ''}${node.mechanism ? `<div><span>Mechanism</span><p>${escapeHtml(node.mechanism)}</p></div>` : ''}</section>` : ''}
-    ${node.inputs?.length || node.outputs?.length ? `<section class="detail-section"><h3>Functional interface</h3><p class="subtle">What this reusable building block receives and produces; these are not device performance measurements.</p>${node.inputs?.length ? `<div class="detail-facts"><div><span>Receives</span><div class="chip-list">${node.inputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></div></div>` : ''}${node.outputs?.length ? `<div class="detail-facts"><div><span>Produces</span><div class="chip-list">${node.outputs.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></div></div>` : ''}</section>` : ''}
-    ${node.design_handles?.length ? `<section class="detail-section"><h3>Design handles</h3><div class="chip-list">${node.design_handles.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
-    ${node.failure_modes?.length ? `<section class="detail-section"><h3>Failure modes / limitations</h3><ul class="plain-list">${node.failure_modes.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></section>` : ''}
+    ${node.inputs?.length || node.outputs?.length ? '<p class="subtle extraction-vocabulary-note">Paper-specific input/output phrases are retained in the extraction data but omitted here: they are unnormalized evidence vocabulary, not motif-level ports or device metrics.</p>' : ''}
+    ${designHandles.total ? `<section class="detail-section"><h3>Reported design variables</h3><p class="subtle">Examples from the extracted paper vocabulary${designHandles.hidden ? `; showing ${designHandles.visible.length} of ${designHandles.total}` : ''}.</p><div class="chip-list">${designHandles.visible.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div></section>` : ''}
+    ${failureModes.total ? `<section class="detail-section"><h3>Reported limitations / failure modes</h3><p class="subtle">Examples from the extracted paper vocabulary${failureModes.hidden ? `; showing ${failureModes.visible.length} of ${failureModes.total}` : ''}.</p><ul class="plain-list">${failureModes.visible.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></section>` : ''}
     ${motifAdoptionDetailMarkup(node)}
     ${motifCharacteristicDetailMarkup(node)}
     ${related.length ? `<section class="detail-section"><h3>Related motifs</h3>${motifChips(related, 8)}</section>` : ''}

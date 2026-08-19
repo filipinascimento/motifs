@@ -5,6 +5,7 @@ import {
   deviceCatalog,
   deviceResults,
   edgeCategory,
+  extractedTermPreview,
   familyForMotif,
   filterEdgesByCategory,
   measurementsForDevice,
@@ -53,6 +54,14 @@ test('motif explorer filters by level, family, aliases, and ranks by paper count
   assert.deepEqual(motifResults(motifs, { registry: 'observation' }).map((row) => row.id), ['observation'])
   assert.deepEqual(motifResults(motifs, { registry: 'recurrent' }).map((row) => row.id), ['wireless', 'strain'])
   assert(!motifResults(motifs, { registry: 'all' }).some((row) => row.level === 'L1'))
+})
+
+test('extracted vocabulary previews are bounded and collapse case-only duplicates', () => {
+  assert.deepEqual(extractedTermPreview(['Sensor output', 'sensor output', 'Reference', 'Result'], 2), {
+    visible: ['Sensor output', 'Reference'],
+    total: 3,
+    hidden: 1,
+  })
 })
 
 test('device explorer excludes organizing L1 motifs and searches paper and function fields', () => {

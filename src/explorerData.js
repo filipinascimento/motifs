@@ -11,6 +11,20 @@ export function normalizeText(value = '') {
     .trim()
 }
 
+export function extractedTermPreview(values = [], limit = 8) {
+  const seen = new Set()
+  const uniqueValues = []
+  for (const value of asArray(values)) {
+    const text = String(value || '').trim()
+    const key = normalizeText(text)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    uniqueValues.push(text)
+  }
+  const visible = uniqueValues.slice(0, Math.max(0, Number(limit) || 0))
+  return { visible, total: uniqueValues.length, hidden: uniqueValues.length - visible.length }
+}
+
 function includesQuery(values, query) {
   const tokens = normalizeText(query).split(/\s+/u).filter(Boolean)
   if (!tokens.length) return true
