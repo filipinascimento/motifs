@@ -37,7 +37,7 @@ function fieldsForScope(fieldMap, scope = 'all') {
   return asArray(fieldMap[scope])
 }
 
-function readablePaperTitle(paper = {}, index = {}) {
+export function readablePaperTitle(paper = {}, index = {}) {
   const title = String(paper.title || index.title || '').trim()
   const citation = String(paper.citation || index.citation || '').trim()
   const looksLikeFileStem = title && !/\s/u.test(title) && /^[\p{Letter}\p{Number}_.-]+$/u.test(title)
